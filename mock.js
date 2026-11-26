@@ -39,7 +39,7 @@
   var deliv = {
     items: onhand.map(function (o) { return { number: o.number, title: o.title, photo: o.photo, ready_date: day(-2), storage_until: o.delivery_deadline, status: "Ожидает действия" }; }),
     waiting: onhand.length, can_request: true, can_defer: true, defer_used: false, packed_block: false,
-    carriers: ["СДЭК", "Почта России", "Boxberry", "Другое"], pack_notice: false, added_notice: false
+    carriers: ["СДЭК", "Яндекс", "Самовывоз, Москва", "Другое"], pickup: "Самовывоз, Москва", pickup_address: "Москва, ул. Примерная, 1\nпн–пт 12:00–20:00", pack_notice: false, added_notice: false
   };
   if (sc === "ban") { deliv.block = { from: day(3), to: day(17), reason: "Новогодние праздники, посылки не отправляются" }; deliv.can_request = false; deliv.can_defer = false; }
   if (sc === "empty") { deliv.items = []; deliv.waiting = 0; }

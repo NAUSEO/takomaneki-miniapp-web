@@ -296,14 +296,20 @@ function requestSheet(d) {
     <div class="muted">Служба доставки</div>
     ${d.carriers.map((c) => `<label class="opt"><input type="radio" name="carrier" value="${esc(c)}"> ${esc(c)}</label>`).join("")}
     <input id="cname" placeholder="Название службы доставки" maxlength="40" hidden>
-    <div class="muted" style="margin-top:12px">Страховка</div>
+    <div id="pickbox" class="card" style="display:block" hidden><b>${esc(d.pickup)}</b><div class="detail">${esc(d.pickup_address)}</div></div>
+    <div id="insblock"><div class="muted" style="margin-top:12px">Страховка</div>
     <label class="opt"><input type="radio" name="ins" value="1"> Да</label>
-    <label class="opt"><input type="radio" name="ins" value="0"> Нет</label>
+    <label class="opt"><input type="radio" name="ins" value="0"> Нет</label></div>
     <div id="insbox" hidden><div class="muted">Укажите сумму страховки. Если хотите уточнить при оформлении, укажите 0</div>
     <input id="insamt" inputmode="numeric" placeholder="0"></div>
     <div class="tabs" style="margin-top:12px"><button class="btn primary" id="send">Отправить</button><button class="btn" id="cancel">Отмена</button></div>`);
   const val = (n) => { const r = el.querySelector(`input[name=${n}]:checked`); return r ? r.value : null; };
-  el.querySelectorAll("input[name=carrier]").forEach((r) => (r.onchange = () => (el.querySelector("#cname").hidden = val("carrier") !== "Другое")));
+  el.querySelectorAll("input[name=carrier]").forEach((r) => (r.onchange = () => {
+    const pick = val("carrier") === d.pickup;
+    el.querySelector("#cname").hidden = val("carrier") !== "Другое";
+    el.querySelector("#pickbox").hidden = !pick; el.querySelector("#insblock").hidden = pick;
+    if (pick) el.querySelector("#insbox").hidden = true; else el.querySelector("#insbox").hidden = val("ins") !== "1";
+  }));
   el.querySelectorAll("input[name=ins]").forEach((r) => (r.onchange = () => (el.querySelector("#insbox").hidden = val("ins") !== "1")));
   el.querySelector("#cancel").onclick = () => el.remove();
   const btn = el.querySelector("#send");
@@ -311,14 +317,23 @@ function requestSheet(d) {
     const carrier = val("carrier"), ins = val("ins");
     if (!carrier) return toast("Выберите службу доставки");
     if (carrier === "Другое" && !el.querySelector("#cname").value.trim()) return toast("Укажите название службы доставки");
-    if (ins === null) return toast("Укажите, нужна ли страховка");
+    const pick = carrier === d.pickup;
+    if (!pick && ins === null) return toast("Укажите, нужна ли страховка");
     btn.disabled = true;
     try {
       await api("/api/delivery/request", { method: "POST", headers: headers(), body: JSON.stringify({
-        carrier, carrier_name: el.querySelector("#cname").value, insurance: ins === "1", insurance_amount: el.querySelector("#insamt").value || "0" }) });
-      clearBadge("delivery"); afterAction("Ваша заявка на доставку отправлена");
+        carrier, carrier_name: el.querySelector("#cname").value, insurance: pick ? false : ins === "1", insurance_amount: el.querySelector("#insamt").value || "0" }) });
+      clearBadge("delivery");
+      if (pick) { pickupDone(); } else afterAction("Ваша заявка на доставку отправлена");
     } catch (e) { btn.disabled = false; toast(e.message || "Не удалось отправить"); }
   };
+}
+function pickupDone() {
+  const old = document.querySelector(".sheet"); if (old) old.remove();
+  try { localStorage.removeItem("c:delivery"); } catch (e) {}
+  const el = sheet(`<h3>Заявка отправлена</h3><p>Ждите, с вами свяжется администратор, либо можете самостоятельно связаться через личные сообщения.</p>
+    <div class="tabs"><button class="btn primary" id="ok">Понятно</button></div>`);
+  el.querySelector("#ok").onclick = () => { el.remove(); viewDelivery(); };
 }
 function deferSheet() {
   const el = sheet(`<h3>Отложить</h3>
