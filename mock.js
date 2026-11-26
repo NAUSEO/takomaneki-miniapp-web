@@ -75,7 +75,7 @@
   var STATUSES = ["Предзаказ", "Мероприятие", "Оформлен", "Выкуплен", "В пути на кит.склад", "На кит.складе", "Отправлен в РФ", "Получен в РФ", "На руках у админа", "Оформлена доставка по РФ", "Отправлена по РФ", "Отложено", "Просрок хранения"];
   function adminMock(path, body) {
     var p = path.split("?")[0], m;
-    if (p === "/ma/meta") return { statuses: STATUSES, sources: ["Taobao", "Goofish", "Weidian", "Rednote", "Другое"], channels: [{ id: 1, name: "Цу", rate: Number(A.ch) }] };
+    if (p === "/ma/meta") return { statuses: STATUSES, sources: ["Taobao", "Goofish", "Weidian", "Rednote", "Другое"], channels: [{ id: 1, name: "Цу", rate: Number(A.ch) }], user_statuses: ["Администратор", "Заказчик", "Необработанный", "Неизвестный", "Архив"] };
     if (p === "/ma/rates") return { main: { rate: A.main, multiplier: 1.1 }, channels: [{ id: 1, name: "Цу", rate: A.ch }] };
     if (p === "/ma/rates/main") { A.main = String(body.rate).replace(",", "."); return { ok: true, rate: A.main, notified: 3 }; }
     if (p === "/ma/rates/channel") { A.ch = String(body.rate).replace(",", "."); return { ok: true, rate: A.ch, notified: 2 }; }
@@ -88,6 +88,8 @@
     if ((m = p.match(/^\/ma\/order\/(\d+)\/status$/))) { return { ok: true, old: "Оформлен", status: body.status }; }
     if ((m = p.match(/^\/ma\/order\/(\d+)\/photo$/))) return { ok: true };
     if ((m = p.match(/^\/ma\/order\/(\d+)$/))) { var o = AORD.filter(function (x) { return x.id == m[1]; })[0]; return Object.assign({ items: "", comment: "", source: "Taobao", deadline: o.status === "На руках у админа" ? day(12) : null }, o); }
+    if (p === "/ma/people") return { users: [{ id: 5, name: "Анна", username: "anna", nick: "", comment: "", tags: "VIP", status: "Заказчик", manual: false, channel_id: null }, { id: 7, name: "Озон-карточка", username: "", nick: "Озон-карточка", comment: "ручная", tags: "", status: "Заказчик", manual: true, channel_id: 1 }], more: false };
+    if (p === "/ma/people/new" || /^\/ma\/people\/\d+\/(edit|status)$/.test(p)) return { ok: true, id: 8 };
     if (p === "/ma/users") return { users: [{ id: 5, name: "Анна", username: "anna", telegram_id: 1, nick: "", status: "Заказчик" }, { id: 6, name: "Игорь", username: "igor", telegram_id: 2, nick: "И.", status: "Заказчик" }] };
     if (p === "/ma/orders/new") return { ok: true, id: 99, number: "№1099" };
     if (p === "/ma/blocks") return { blocks: A.blocks };

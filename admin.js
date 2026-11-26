@@ -3,7 +3,7 @@
 (function () {
   "use strict";
   const ADM = { tab: "rates", meta: null };
-  const TABS = [["rates", "Курс"], ["calc", "Расчёт"], ["orders", "Заказы"], ["deliv", "Доставка"]];
+  const TABS = [["rates", "Курс"], ["calc", "Расчёт"], ["orders", "Заказы"], ["deliv", "Доставка"], ["people", "Клиенты"]];
 
   async function aapi(path, opts) {
     if (!ME || ME.admin_api == null) throw new Error("Админ-раздел не настроен");
@@ -28,7 +28,7 @@
     if (!ADM.meta) { $("screen").innerHTML = `<div class="spin small"></div>`; try { ADM.meta = await aapi("/ma/meta"); } catch (e) { $("screen").innerHTML = `<p class="muted">Не удалось открыть админ-раздел: ${esc(errText(e))}</p>`; return; } }
     $("screen").innerHTML = `<div class="tabs atabs">${TABS.map(([k, t]) => `<button class="btn ${ADM.tab === k ? "primary" : ""}" data-t="${k}">${t}</button>`).join("")}</div><div id="atab"></div>`;
     document.querySelectorAll(".atabs .btn").forEach((b) => (b.onclick = () => { ADM.tab = b.dataset.t; window.viewAdmin(); }));
-    ({ rates: tabRates, calc: tabCalc, orders: tabOrders, deliv: tabDeliv }[ADM.tab])();
+    ({ rates: tabRates, calc: tabCalc, orders: tabOrders, deliv: tabDeliv, people: tabPeople }[ADM.tab])();
   };
 
   /* ---------- Курс ---------- */
@@ -96,7 +96,7 @@
   function newOrderSheet(refresh) {
     let userId = null;
     const el = sheet(`<h3>Новый заказ</h3>
-      <label class="muted">Клиент</label><input id="nu" placeholder="Имя, @ник или Telegram ID"><div id="nul"></div><div class="muted" id="nuc"></div>
+      <label class="muted">Клиент</label><input id="nu" placeholder="Поиск по списку: имя, @ник или ID"><select id="nsel"><option value="">Загрузка…</option></select><div class="muted" id="nuc"></div>
       <label class="muted">Название</label><input id="nt" placeholder="Что заказали">
       <label class="muted">Источник</label><select id="ns">${ADM.meta.sources.map((s) => `<option>${esc(s)}</option>`).join("")}</select>
       <label class="muted">Статус</label><select id="nst">${statusOptions("Оформлен")}</select>
@@ -104,9 +104,17 @@
       <label class="muted">Фото</label><input type="file" id="np" accept="image/*">
       <div class="tabs"><button class="btn primary" id="nsave">Создать</button><button class="btn" id="nx">Отмена</button></div>`);
     $("nx").onclick = () => el.remove();
-    let t; $("nu").oninput = () => { clearTimeout(t); t = setTimeout(async () => { const q = $("nu").value.trim(); if (q.length < 2) { $("nul").innerHTML = ""; return; }
-      try { const d = await aapi("/ma/users?q=" + encodeURIComponent(q)); $("nul").innerHTML = d.users.map((u) => `<button class="opt" data-u="${u.id}" data-n="${esc(u.name)}">${esc(u.name)} ${u.username ? "@" + esc(u.username) : ""}${u.nick ? " · " + esc(u.nick) : ""}</button>`).join("") || `<div class="muted">Не найден</div>`;
-        document.querySelectorAll("#nul [data-u]").forEach((b) => (b.onclick = () => { userId = b.dataset.u; $("nuc").textContent = "Выбран: " + b.dataset.n; $("nul").innerHTML = ""; })); } catch (e) {} }, 350); };
+    let all = [];
+    const label = (u) => (u.name + (u.username ? " @" + u.username : "") + (u.nick && u.nick !== u.name ? " · " + u.nick : ""));
+    const fill = (q) => {
+      const f = (q || "").toLowerCase();
+      const list = all.filter((u) => !f || (label(u) + " " + (u.telegram_id || "")).toLowerCase().includes(f));
+      $("nsel").innerHTML = `<option value="">— выберите клиента (${list.length}) —</option>` + list.map((u) => `<option value="${u.id}">${esc(label(u))}</option>`).join("");
+      if (userId && list.some((u) => String(u.id) === String(userId))) $("nsel").value = userId;
+    };
+    aapi("/ma/users?all=1").then((d) => { all = d.users; fill(""); }).catch((e) => { $("nuc").textContent = errText(e); });
+    $("nu").oninput = () => fill($("nu").value.trim());
+    $("nsel").onchange = () => { userId = $("nsel").value || null; $("nuc").textContent = userId ? "Выбран: " + $("nsel").selectedOptions[0].textContent : ""; };
     $("nsave").onclick = async () => {
       if (!userId) return toast("Выберите клиента из списка");
       const fd = new FormData(); fd.append("user_id", userId); fd.append("title", $("nt").value); fd.append("source", $("ns").value); fd.append("status", $("nst").value); fd.append("comment", $("nc").value);
@@ -126,5 +134,54 @@
       + `<h3>Заявки на доставку</h3>` + (d.deliveries.length ? d.deliveries.map((x) => `<div class="row"><span class="l">${esc(x.client)}${x.via_app ? " · из приложения" : ""}<span class="cap">${esc(x.carrier)}${x.insurance != null ? " · страховка " + money(x.insurance) : ""}</span></span>${chip(x.status)}</div>`).join("") : `<p class="muted">Активных нет</p>`);
     $("bs").onclick = async () => { try { const r = await aapi("/ma/blocks/new", { method: "POST", json: { from: $("bf").value, to: $("bt").value, reason: $("br").value, extend: $("bx").checked } }); toast(`Запрет включён. Срок хранения продлён у позиций: ${r.extended} (+${r.days} дн.)`); tabDeliv(); } catch (e) { toast(errText(e)); } };
     document.querySelectorAll("[data-bd]").forEach((x) => (x.onclick = async () => { try { await aapi("/ma/blocks/" + x.dataset.bd + "/delete", { method: "POST" }); toast("Запрет снят"); tabDeliv(); } catch (e) { toast(errText(e)); } }));
+  }
+
+  /* ---------- Клиенты: профиль, ручные карточки, права, архив ---------- */
+  function tabPeople() {
+    let arch = false;
+    $("atab").innerHTML = `<div class="tabs"><input id="uq" placeholder="Имя, @ник, ID, метка" style="flex:1;margin:0"><button class="btn primary" id="us">Найти</button></div>
+      <div class="tabs"><button class="btn" id="unew">＋ Ручная карточка</button><button class="btn" id="uarch">Архив</button></div><div id="ulist"></div>`;
+    const run = async () => {
+      $("ulist").innerHTML = `<div class="spin small"></div>`;
+      try { const d = await aapi("/ma/people?archived=" + (arch ? 1 : 0) + "&q=" + encodeURIComponent($("uq").value.trim()));
+        $("ulist").innerHTML = (arch ? `<p class="muted">Показан архив</p>` : "") + (d.users.length ? d.users.map((u) => `<button class="row" data-u="${u.id}"><span class="l">${esc(u.name)}${u.username ? " @" + esc(u.username) : ""}<span class="cap">${u.manual ? "ручная карточка" : "Telegram"}${u.tags ? " · " + esc(u.tags) : ""}</span></span><span class="chip">${esc(u.status)}</span></button>`).join("") + (d.more ? `<p class="muted">Показаны первые 100. Уточните поиск.</p>` : "") : `<p class="muted">Никого не найдено</p>`);
+        document.querySelectorAll("#ulist [data-u]").forEach((b) => (b.onclick = () => userSheet(d.users.find((x) => String(x.id) === b.dataset.u), run)));
+      } catch (e) { $("ulist").innerHTML = `<p class="muted">${esc(errText(e))}</p>`; }
+    };
+    $("us").onclick = run; $("uq").onkeydown = (e) => { if (e.key === "Enter") run(); };
+    $("uarch").onclick = () => { arch = !arch; $("uarch").textContent = arch ? "← Активные" : "Архив"; run(); };
+    $("unew").onclick = () => newUserSheet(run); run();
+  }
+
+  const userStatusOpts = (cur) => ADM.meta.user_statuses.map((s) => `<option ${s === cur ? "selected" : ""}>${esc(s)}</option>`).join("");
+  const channelOpts = (cur) => `<option value="">Основной</option>` + ADM.meta.channels.map((c) => `<option value="${c.id}" ${String(c.id) === String(cur) ? "selected" : ""}>${esc(c.name)}</option>`).join("");
+
+  function userSheet(u, refresh) {
+    const el = sheet(`<h3>${esc(u.name)}</h3><div class="muted">${u.manual ? "Ручная карточка" : "Telegram"}${u.username ? " · @" + esc(u.username) : ""}</div>
+      <label class="muted">Ник (как вы его видите)</label><input id="un" value="${esc(u.nick)}">
+      <label class="muted">Метки</label><input id="ut" value="${esc(u.tags)}">
+      <label class="muted">Комментарий</label><input id="uc" value="${esc(u.comment)}">
+      <label class="muted">Канал</label><select id="uch">${channelOpts(u.channel_id)}</select>
+      <div class="tabs"><button class="btn primary" id="usave">Сохранить профиль</button></div>
+      <label class="muted">Права / статус</label><select id="ust">${userStatusOpts(u.status)}</select>
+      <div class="tabs"><button class="btn primary" id="ustb">Сменить статус</button>${u.status === "Архив" ? `<button class="btn" id="uun">Вернуть из архива</button>` : `<button class="btn" id="uar">В архив</button>`}</div>
+      <div class="tabs"><button class="btn" id="ux">Закрыть</button></div>`);
+    const post = async (path, json, msg) => { try { await aapi(path, { method: "POST", json }); toast(msg); el.remove(); refresh(); } catch (e) { toast(errText(e)); } };
+    $("ux").onclick = () => el.remove();
+    $("usave").onclick = () => post("/ma/people/" + u.id + "/edit", { nickname: $("un").value, tags: $("ut").value, comment: $("uc").value, channel_id: $("uch").value }, "Профиль сохранён");
+    $("ustb").onclick = () => { const st = $("ust").value; if ((st === "Администратор" || u.status === "Администратор") && st !== u.status && !confirm("Изменить права администратора?")) return; post("/ma/people/" + u.id + "/status", { status: st }, "Статус изменён"); };
+    if ($("uar")) $("uar").onclick = () => { if (confirm("Отправить в архив?")) post("/ma/people/" + u.id + "/status", { status: "Архив" }, "Отправлен в архив"); };
+    if ($("uun")) $("uun").onclick = () => post("/ma/people/" + u.id + "/status", { status: "Заказчик" }, "Возвращён из архива");
+  }
+
+  function newUserSheet(refresh) {
+    const el = sheet(`<h3>Новая ручная карточка</h3>
+      <label class="muted">Ник</label><input id="nn" placeholder="Как её называть">
+      <label class="muted">Метки</label><input id="nt2" placeholder="Необязательно">
+      <label class="muted">Комментарий</label><input id="nc2" placeholder="Необязательно">
+      <label class="muted">Статус</label><select id="ns2">${userStatusOpts("Заказчик")}</select>
+      <div class="tabs"><button class="btn primary" id="nsv">Создать</button><button class="btn" id="nxx">Отмена</button></div>`);
+    $("nxx").onclick = () => el.remove();
+    $("nsv").onclick = async () => { try { await aapi("/ma/people/new", { method: "POST", json: { nickname: $("nn").value, tags: $("nt2").value, comment: $("nc2").value, status: $("ns2").value } }); toast("Карточка создана"); el.remove(); refresh(); } catch (e) { toast(errText(e)); } };
   }
 })();
