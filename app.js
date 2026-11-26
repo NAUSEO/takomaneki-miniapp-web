@@ -12,6 +12,47 @@ const dkey = (v) => { const m = String(v == null ? "" : v).match(/\d{4}-\d{2}-\d
 const fmtDate = (v) => { const k = dkey(v); return k ? k.split("-").reverse().join(".") : ""; };
 const rub = (v) => `${Number(v || 0).toLocaleString("ru-RU")} ₽`;
 
+
+const I = (p) => `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
+const ICON = {
+  orders: I('<path d="M12 2.5l8.5 4.5v10L12 21.5 3.5 17V7z"/><path d="M3.5 7L12 11.5 20.5 7M12 11.5v10M7.8 4.8l8.5 4.6"/>'),
+  rate: I('<circle cx="12" cy="12" r="9.5"/><path d="M8.5 6.5L12 11.5l3.5-5M8.5 12.5h7M8.5 15.5h7M12 11.5v7"/>'),
+  payments: I('<path d="M4 6.5h13.5a2.5 2.5 0 0 1 2.5 2.5v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7.5a1 1 0 0 1 1-1z"/><path d="M4 6.5L15 3v3.5"/><path d="M15.5 11.5H20v5h-4.5a2.5 2.5 0 0 1 0-5z"/>'),
+  delivery: I('<path d="M1.4 4.7h13v10.6H1.4zM14.4 8.3h4.7l3.5 3.5v3.5h-8.2"/><circle cx="6.1" cy="17.1" r="2.1"/><circle cx="17.9" cy="17.1" r="2.1"/>'),
+  profile: I('<circle cx="12" cy="8" r="4.5"/><path d="M3.5 21.5c.8-5 4.3-8 8.5-8s7.7 3 8.5 8"/>'),
+  bell: I('<path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 20a2 2 0 0 0 4 0"/>'),
+  home: I('<path d="M4 11l8-7 8 7v9H4z"/><path d="M10 20v-5h4v5"/>'),
+  back: I('<path d="M15 5l-7 7 7 7"/>'),
+  list: I('<path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 6h1M3 12h1M3 18h1"/>'),
+  gridv: I('<rect x="3" y="3" width="7.5" height="7.5"/><rect x="13.5" y="3" width="7.5" height="7.5"/><rect x="3" y="13.5" width="7.5" height="7.5"/><rect x="13.5" y="13.5" width="7.5" height="7.5"/>'),
+  box: I('<path d="M4 8l8-4 8 4v8l-8 4-8-4z"/><path d="M4 8l8 4 8-4M12 12v8"/>'),
+  star: I('<path d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6L12 16.5 6.7 19.4l1.2-6L3.4 9.3l6-.7z"/>'),
+  basket: I('<path d="M4 10h16l-2 10H6z"/><path d="M8 10l4-6 4 6"/>'),
+};
+// 13 статусов заказа (как в таблице админа): цвет плашки + свой значок, смысл не только цветом
+// белые — оформление, светло-серые — Китай, чёрные — в дороге, жёлтые — дошло, полосатая — внимание
+const TRUCK = '<path d="M1.4 4.7h13v10.6H1.4zM14.4 8.3h4.7l3.5 3.5v3.5h-8.2"/><circle cx="6.1" cy="17.1" r="2.1"/><circle cx="17.9" cy="17.1" r="2.1"/>';
+const IS = (p) => I(p).replace('stroke-width="2"', 'stroke-width="2.1"');
+const ST = {
+  "Предзаказ": ["s-stone", IS('<rect x="4" y="4.5" width="16" height="17.5" rx="2"/><path d="M4 10.5h16M9 2v5M15 2v5"/>')],
+  "Мероприятие": ["s-pink", IS('<path d="M12 2l3 6.5 7 .8-5.2 4.8 1.4 7L12 17.6 5.8 21.1l1.4-7L2 9.3l7-.8z"/>')],
+  "Оформлен": ["s-rose", IS('<rect x="4.5" y="4" width="15" height="18" rx="1"/><path d="M8.5 4V2h7v2M8 13.5l3 3 5-6"/>')],
+  "Выкуплен": ["s-olive", IS('<path d="M3 12.5l6 6L21 5.5"/>').replace('stroke-width="2.1"', 'stroke-width="2.8"')],
+  "В пути на кит.склад": ["s-lime", IS(TRUCK)],
+  "На кит.складе": ["s-pink", IS('<path d="M2.5 22V8.5L12 2.5l9.5 6V22"/><path d="M6.5 22v-9h11v9M6.5 17.5h11"/>')],
+  "Отправлен в РФ": ["s-lime", IS('<path d="M2 11L22 2.5 16 22l-4.5-7.5z"/><path d="M11.5 14.5L22 2.5"/>')],
+  "Получен в РФ": ["s-olive", IS('<path d="M3 13v8.5h18V13"/><path d="M12 2v13M7 10l5 5 5-5"/>')],
+  "На руках у админа": ["s-dark", IS('<path d="M12 2.5l8.5 4.5v10L12 21.5 3.5 17V7z"/><path d="M3.5 7L12 11.5 20.5 7M12 11.5v10"/>')],
+  "Оформлена доставка по РФ": ["s-rose", IS('<path d="M2.5 12.5V2.5h10l9.5 9.5-10 10z"/><circle cx="7.5" cy="7.5" r="1.8"/>')],
+  "Отправлена по РФ": ["s-lime", IS('<path d="M5 4.7h10v10.6H5zM15 8.3h3.6l3.4 3.5v3.5h-7"/><circle cx="8.6" cy="17.4" r="2.1"/><circle cx="18.3" cy="17.4" r="2.1"/><path d="M1 8h2.5M1 11.5h2.5"/>')],
+  "Отложено": ["s-stone", IS('<circle cx="12" cy="12" r="10"/><path d="M9.5 7.5v9M14.5 7.5v9"/>')],
+  "Просрок хранения": ["s-warn", IS('<path d="M12 2L1.5 21h21z"/><path d="M12 9v6M12 18v.5"/>')],
+  "Ожидает действия": ["s-olive", IS('<circle cx="12" cy="12" r="10"/><path d="M12 6.5V12l3.5 2.5"/>')],
+};
+ST["Едет на склад"] = ST["В пути на кит.склад"]; ST["В пути в РФ"] = ST["Отправлен в РФ"]; // старые названия из тестовых данных
+const ST0 = I('<circle cx="12" cy="12" r="4"/>');
+const chip = (st) => { const v = ST[st] || ["s-stone", ST0]; return `<span class="badge ${v[0]}">${v[1]}<span>${esc(st)}</span></span>`; };
+
 function headers() {
   const h = { "Content-Type": "application/json" };
   if (tg && tg.initData) h["X-Init-Data"] = tg.initData;
@@ -57,11 +98,11 @@ function render() {
 }
 
 function viewHome() {
-  const tiles = [["orders", "Заказы"], ["rate", "Курс"]];
+  const tiles = [["orders", "Заказы"], ["rate", "Курс"]]; const CAP={orders:"SEC.01",rate:"SEC.02",payments:"SEC.03",delivery:"SEC.04",profile:"SEC.05"};
   tiles.push(["payments", "Оплаты"]);
   tiles.push(["delivery", "Доставка"]);
   tiles.push(["profile", "Профиль"]);
-  $("screen").innerHTML = `<div class="banner" id="banner"></div><div class="tiles">${tiles.map(([k, t]) => `<button class="tile" data-k="${k}" data-t="${t}">${t}</button>`).join("")}</div>`;
+  $("screen").innerHTML = `<div class="banner" id="banner"></div><div class="tiles">${tiles.map(([k, t]) => `<button class="tile t-${k}" data-cap="${CAP[k]}" data-k="${k}" data-t="${t}"><span class="bar"><span class="tl">${t}</span><span class="x"></span></span><span class="ico">${ICON[k]}</span></button>`).join("")}</div>`;
   document.querySelectorAll(".tile").forEach((b) => (b.onclick = () => go(b.dataset.k, null, b.dataset.t)));
   setBadges(cacheGet("badges"));
   api("/api/badges", null, "badges").then(setBadges).catch(() => {});
@@ -80,25 +121,25 @@ function clearBadge(k) { const b = cacheGet("badges") || {}; b[k] = false; cache
 
 /* ---------- заказы ---------- */
 function orderCard(o) {
-  const ph = o.photo ? `<img class="ph" loading="lazy" src="${U(o.photo)}" alt="">` : `<div class="ph empty">📦</div>`;
+  const ph = o.photo ? `<img class="ph" loading="lazy" src="${U(o.photo)}" alt="">` : `<div class="ph empty">${ICON.orders}</div>`;
   const lines = [];
   if (!o.merged) {
     if (o.items) lines.push(`Описание: ${esc(o.items)}`);
     if (o.source) lines.push(`Источник: ${esc(o.source)}`);
   }
   lines.push(`Добавлен: ${fmtDate(o.added)}`);
-  if (o.preorder_date) lines.push(`📅 Предполагаемая дата рассылки: ${fmtDate(o.preorder_date)}`);
-  if (o.ship_date) lines.push(`🚢 Дата отправки посылки: ${fmtDate(o.ship_date)}`);
-  if (o.delivery_deadline) lines.push(`⏳ Дедлайн: ${fmtDate(o.delivery_deadline)}`);
-  if (o.delay_until) lines.push(`⏸ Отложено до: ${fmtDate(o.delay_until)}`);
+  if (o.preorder_date) lines.push(`Предполагаемая дата рассылки: ${fmtDate(o.preorder_date)}`);
+  if (o.ship_date) lines.push(`Дата отправки посылки: ${fmtDate(o.ship_date)}`);
+  if (o.delivery_deadline) lines.push(`Дедлайн: ${fmtDate(o.delivery_deadline)}`);
+  if (o.delay_until) lines.push(`Отложено до: ${fmtDate(o.delay_until)}`);
   if (o.delay_reason) lines.push(`Причина: ${esc(o.delay_reason)}`);
-  if (o.event_name) lines.push(`🎪 ${esc(o.event_name)}${o.event_date ? ", " + fmtDate(o.event_date) : ""}\n📍 Этап: ${esc(o.event_state)}`);
-  const parts = o.merged ? `<div class="parts">${o.parts.map((p) => `<div class="card">${p.photo ? `<img class="ph" loading="lazy" src="${U(p.photo)}" alt="">` : `<div class="ph empty">📦</div>`}<div><div class="t">${esc(p.number)}</div><div class="m">${esc(p.title)}</div></div></div>`).join("")}</div>` : "";
-  return `<div class="card" onclick="const d=this.querySelector('.detail');d.hidden=!d.hidden">${o.merged ? `<div class="ph empty">🧺</div>` : ph}
-    <div style="flex:1"><div class="t">${esc(o.number)} — ${esc(o.title)}</div>
-    <div><span class="badge">${o.emoji} ${esc(o.status)}</span></div>
+  if (o.event_name) lines.push(`Мероприятие: ${esc(o.event_name)}${o.event_date ? ", " + fmtDate(o.event_date) : ""}\nЭтап: ${esc(o.event_state)}`);
+  const parts = o.merged ? `<div class="parts">${o.parts.map((p) => `<div class="card">${p.photo ? `<img class="ph" loading="lazy" src="${U(p.photo)}" alt="">` : `<div class="ph empty">${ICON.orders}</div>`}<div><div class="t">${esc(p.number)}</div><div class="m">${esc(p.title)}</div></div></div>`).join("")}</div>` : "";
+  return `<div class="card win" onclick="const d=this.querySelector('.detail');d.hidden=!d.hidden"><div class="bar"><span>${esc(o.number)}</span><span class="x"></span></div><div class="body">${o.merged ? `<div class="ph empty">${ICON.basket}</div>` : ph}
+    <div style="flex:1"><div class="t">${esc(o.title)}</div>
+    <div>${chip(o.status)}</div>
     ${o.merged ? `<div class="cap">Нажмите, чтобы увидеть позиции (${o.parts.length})</div>` : ""}
-    <div class="detail" hidden>${lines.join("\n")}${parts}</div></div></div>`;
+    <div class="detail" hidden>${lines.join("\n")}${parts}</div></div></div></div>`;
 }
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -109,7 +150,7 @@ function byDate(field) { return (a, b) => { const x = dateRank(a[field]), y = da
 function viewOrders() {
   load("/api/orders", "orders", (d) => {
     DATA = d;
-    $("screen").innerHTML = d.groups.map((g) => `<div class="row" data-g="${g.key}"><span class="l">${esc(g.label)}</span><b>${g.count}</b></div>`).join("");
+    $("screen").innerHTML = d.groups.map((g) => `<div class="row" data-g="${g.key}"><span class="l">${esc(g.label)}</span><b class="cnt">${g.count}</b></div>`).join("");
     document.querySelectorAll("[data-g]").forEach((el) => (el.onclick = () => openGroup(el.dataset.g)));
   });
 }
@@ -117,6 +158,36 @@ function openGroup(key) {
   PRE_BREAKDOWN = false;
   const g = DATA.groups.find((x) => x.key === key);
   go("group", { key }, g.label);
+}
+
+// вид «плитка фото»: облачко с информацией рядом с фото, сами фото не сдвигаются
+// на плитке: фото (или значок), уголок со значком статуса, у сборного — число позиций
+function cellHtml(o, i) {
+  const many = o.merged ? o.parts.length : o.parts ? o.parts.length : 0;
+  const v = ST[o.status] || ["s-stone", ST0];
+  return `<button class="cell${o.photo ? "" : " nophoto"}${many ? " multi" : ""}" data-i="${i}" aria-label="${esc(o.number)}, ${esc(o.status)}">${o.photo && !many ? `<img loading="lazy" src="${U(o.photo)}" alt="">` : `<span class="ico">${many ? ICON.basket : ICON.orders}</span>`}<span class="cst badge ${v[0]}">${v[1]}</span>${many ? `<span class="cn">×${many}</span>` : ""}</button>`;
+}
+function layHtml(list, card) {
+  return `<div class="vsw" role="group" aria-label="Вид списка"><button class="btn" data-lay="list" aria-label="Списком">${ICON.list}</button><button class="btn" data-lay="grid" aria-label="Плиткой">${ICON.gridv}</button></div><div class="olist">${list.map(card).join("")}</div><div class="grid">${list.map(cellHtml).join("")}<div class="pop" hidden></div></div>`;
+}
+function bindGrid(list, cardFn) {
+  const sc = $("screen"), g = sc.querySelector(".grid"), pop = g.querySelector(".pop");
+  const setLay = (v) => { sc.classList.toggle("lay-grid", v === "grid"); sc.querySelectorAll("[data-lay]").forEach((b) => b.classList.toggle("primary", b.dataset.lay === v)); pop.hidden = true; };
+  sc.querySelectorAll("[data-lay]").forEach((b) => (b.onclick = () => { cacheSet("lay", b.dataset.lay); setLay(b.dataset.lay); }));
+  setLay(cacheGet("lay") || "list");
+  const close = () => { pop.hidden = true; g.querySelectorAll(".cell.on").forEach((c) => c.classList.remove("on")); };
+  g.querySelectorAll(".cell").forEach((c) => (c.onclick = (e) => {
+    e.stopPropagation();
+    const was = c.classList.contains("on"); close(); if (was) return;
+    pop.innerHTML = cardFn(list[c.dataset.i]);
+    const card = pop.querySelector(".card"), det = card.querySelector(".detail"); card.removeAttribute("onclick"); if (det) det.hidden = false;
+    c.classList.add("on"); pop.hidden = false;
+    const gw = g.clientWidth, pw = pop.offsetWidth, cx = c.offsetLeft + c.offsetWidth / 2;
+    const l = Math.max(0, Math.min(gw - pw, cx - pw / 2));
+    pop.style.left = l + "px"; pop.style.top = c.offsetTop + c.offsetHeight + 12 + "px"; pop.style.setProperty("--ax", cx - l + "px");
+  }));
+  pop.onclick = (e) => e.stopPropagation();
+  if (!bindGrid.doc) { bindGrid.doc = true; document.addEventListener("click", () => { const p = document.querySelector("#screen .pop"); if (p && !p.hidden) { p.hidden = true; document.querySelectorAll("#screen .cell.on").forEach((c) => c.classList.remove("on")); } }); }
 }
 
 function viewGroup(arg) {
@@ -142,7 +213,7 @@ function viewGroup(arg) {
         if (!PRE_BREAKDOWN) { box.innerHTML = ""; return; }
         const dates = {}; all.forEach((o) => { const k = dkey(o.preorder_date); dates[k] = (dates[k] || 0) + 1; });
         const keys = Object.keys(dates).sort((a, b) => { const x = dateRank(a), y = dateRank(b); return x[0] - y[0] || (x[1] < y[1] ? -1 : 1); });
-        box.innerHTML = keys.map((k) => `<div class="row sub" data-d="${k}"><span>${k ? fmtDate(k) : "Дата не указана"}</span><b>${dates[k]}</b></div>`).join("");
+        box.innerHTML = keys.map((k) => `<div class="row sub" data-d="${k}"><span class="l">${k ? fmtDate(k) : "Дата не указана"}</span><b class="cnt">${dates[k]}</b></div>`).join("");
         box.querySelectorAll("[data-d]").forEach((r) => (r.onclick = () => go("group", { key: "preorder", date: r.dataset.d, label: r.dataset.d ? fmtDate(r.dataset.d) : "Дата не указана" }, "Предзаказ")));
       };
       $("relbtn").onclick = () => { PRE_BREAKDOWN = !PRE_BREAKDOWN; paint(); };
@@ -156,7 +227,8 @@ function viewGroup(arg) {
     return show(`${esc(arg.label || label)} — ${list.length}`, list);
   };
   const show = (head, list) => {
-    $("screen").innerHTML = `<h3>${head}</h3>` + (list.length ? list.map(orderCard).join("") : `<p class="muted">В этом разделе пока нет заказов.</p>`);
+    $("screen").innerHTML = `<h3>${head}</h3>` + (list.length ? `${layHtml(list, orderCard)}` : `<p class="muted">В этом разделе пока нет заказов.</p>`);
+    if (list.length) bindGrid(list, orderCard);
   };
   const subKey = (o) => (o.status === "Мероприятие" ? `e:${o.event_name || ""}|${dkey(o.event_date)}` : "other");
   // «В пути в РФ»: сначала коробки (название + дата отправки), внутри — состав
@@ -164,7 +236,7 @@ function viewGroup(arg) {
     const boxes = {};
     list.forEach((o) => { const p = o.package; const k = p ? String(p.id) : ""; (boxes[k] = boxes[k] || { key: k, name: p ? p.name : "Без посылки", date: p ? dkey(p.ship_date) : "", n: 0 }).n++; });
     const arr = Object.values(boxes).sort((a, b) => (a.date ? 0 : 1) - (b.date ? 0 : 1) || (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
-    $("screen").innerHTML = arr.map((b) => `<div class="row" data-p="${esc(b.key)}" data-n="${esc(b.name)}"><span class="l">📦 ${esc(b.name)}${b.date ? `<div class="cap">Отправка: ${fmtDate(b.date)}</div>` : ""}</span><b>${b.n}</b></div>`).join("") || `<p class="muted">В этом разделе пока нет заказов.</p>`;
+    $("screen").innerHTML = arr.map((b) => `<div class="row" data-p="${esc(b.key)}" data-n="${esc(b.name)}"><span class="l"><span class="ri">${ICON.box}</span>${esc(b.name)}${b.date ? `<div class="cap">Отправка: ${fmtDate(b.date)}</div>` : ""}</span><b class="cnt">${b.n}</b></div>`).join("") || `<p class="muted">В этом разделе пока нет заказов.</p>`;
     document.querySelectorAll("[data-p]").forEach((r) => (r.onclick = () => go("group", { key: "transit", pkg: r.dataset.p, label: r.dataset.n }, r.dataset.n)));
   };
   const viewOther = (list) => {
@@ -175,7 +247,7 @@ function viewGroup(arg) {
     const other = arr.filter((s) => !s.event);
     const rows = [...ev, ...other].map((s) => {
       const name = s.event ? `${esc(s.name || "Мероприятие")}${s.date ? ", " + fmtDate(s.date) : ""}` : "Другое";
-      return `<div class="row" data-s="${esc(s.key)}" data-n="${esc(name)}"><span class="l">${s.event ? "🎪 " : ""}${name}</span><b>${s.list.length}</b></div>`;
+      return `<div class="row" data-s="${esc(s.key)}" data-n="${esc(name)}"><span class="l">${s.event ? `<span class="ri">${ICON.star}</span>` : ""}${name}</span><b class="cnt">${s.list.length}</b></div>`;
     }).join("");
     $("screen").innerHTML = rows || `<p class="muted">В этом разделе пока нет заказов.</p>`;
     document.querySelectorAll("[data-s]").forEach((r) => (r.onclick = () => go("group", { key: "other", sub: r.dataset.s, label: r.dataset.n }, r.dataset.n)));
@@ -186,10 +258,10 @@ function viewGroup(arg) {
 /* ---------- курс ---------- */
 function viewRate() {
   load("/api/rate", "rate", (data) => {
-    $("screen").innerHTML = `<div class="big">${esc(data.text)}</div>` + (data.rate_set ? `
-      <h3>Расчёт стоимости</h3><div class="muted">Введите цену товара в юанях</div>
+    $("screen").innerHTML = `<div class="card win"><div class="bar"><span>Курс</span><span class="x"></span></div><div class="body"><div class="big rate">${esc(data.text)}</div></div></div>` + (data.rate_set ? `
+      <div class="card win"><div class="bar"><span>Расчёт стоимости</span><span class="x"></span></div><div class="body col"><div class="muted">Введите цену товара в юанях</div>
       <input id="price" inputmode="decimal" placeholder="Например, 250">
-      <button class="btn primary" id="calc">Рассчитать</button><div class="big" id="calcres"></div>` : "");
+      <button class="btn primary" id="calc">Рассчитать</button><div class="big res" id="calcres"></div></div></div>` : "");
     if (!data.rate_set) return;
     $("calc").onclick = async () => {
       try { const r = await api("/api/calc", { method: "POST", body: JSON.stringify({ price: $("price").value }) }); $("calcres").textContent = r.text; }
@@ -202,18 +274,19 @@ function viewRate() {
 function viewProfile() {
   load("/api/profile", "profile", (d) => {
     const s = d.stats, sp = d.spending;
-    $("screen").innerHTML = `${d.photo ? `<img class="ph" style="width:96px;height:96px;border-radius:48px;object-fit:cover" src="${U(d.photo)}" alt="">` : ""}
-      <h3>👤 ${esc(d.name || "Профиль")}</h3><div>Текущих заказов: <b>${s.total}</b></div>
-      ${s.china ? `<div>В Китае: ${s.china}</div>` : ""}${s.in_transit_rf ? `<div>В пути в РФ: ${s.in_transit_rf}</div>` : ""}${s.on_hand_admin ? `<div>На руках админа: ${s.on_hand_admin}</div>` : ""}
-      ${sp.deposit_amount ? `<h3>Депозит</h3><div>${rub(sp.deposit_amount)}${sp.deposit_comment ? " — " + esc(sp.deposit_comment) : ""}</div>` : ""}
-      <h3><button class="btn" id="spoiler">Спойлер: траты</button></h3>
-      <div id="spend" hidden><div>💸 Общая сумма: <b>${rub(sp.total_sum)}</b></div><div>Позиции: ${rub(sp.positions_sum)}</div>
-      <div>Доставки: ${rub(sp.delivery_sum)}</div><div>Дополнительное: ${rub(sp.extra_sum)}</div>
-      ${sp.since ? `<div class="muted">Учёт ведётся с ${fmtDate(sp.since)}</div>` : ""}<p><button class="btn" id="detail">Детализация</button></p><div id="detailbox"></div></div>`;
+    $("screen").innerHTML = `<div class="card win"><div class="bar"><span>Профиль</span><span class="x"></span></div><div class="body prof">${d.photo ? `<img class="ph ava" src="${U(d.photo)}" alt="">` : `<div class="ph ava empty">${ICON.profile}</div>`}
+      <div class="pname">${esc(d.name || "Профиль")}</div></div>
+      <div class="kv"><div><span>Текущих заказов</span><b>${s.total}</b></div>
+      ${s.china ? `<div><span>В Китае</span><b>${s.china}</b></div>` : ""}${s.in_transit_rf ? `<div><span>В пути в РФ</span><b>${s.in_transit_rf}</b></div>` : ""}${s.on_hand_admin ? `<div><span>На руках админа</span><b>${s.on_hand_admin}</b></div>` : ""}</div></div>
+      ${sp.deposit_amount ? `<div class="card win"><div class="bar"><span>Депозит</span><span class="x"></span></div><div class="body col"><div class="big">${rub(sp.deposit_amount)}</div>${sp.deposit_comment ? `<div class="m">${esc(sp.deposit_comment)}</div>` : ""}</div></div>` : ""}
+      <div class="tabs"><button class="btn" id="spoiler">Спойлер: траты</button></div>
+      <div id="spend" hidden><div class="card win"><div class="bar"><span>Траты</span><span class="x"></span></div><div class="kv"><div class="tot"><span>Общая сумма</span><b>${rub(sp.total_sum)}</b></div><div><span>Позиции</span><b>${rub(sp.positions_sum)}</b></div>
+      <div><span>Доставки</span><b>${rub(sp.delivery_sum)}</b></div><div><span>Дополнительное</span><b>${rub(sp.extra_sum)}</b></div></div>
+      ${sp.since ? `<div class="cap pad">Учёт ведётся с ${fmtDate(sp.since)}</div>` : ""}</div><div class="tabs"><button class="btn" id="detail">Детализация</button></div><div id="detailbox"></div></div>`;
     $("spoiler").onclick = () => ($("spend").hidden = !$("spend").hidden);
     $("detail").onclick = async () => {
       const r = await api("/api/profile/detail");
-      $("detailbox").innerHTML = r.rows.length ? r.rows.map((x) => `<div class="row"><span>${esc(x.number)}, ${esc(x.title)}</span><b>${rub(x.paid)}</b></div>`).join("") : `<p class="muted">Пока нет оплаченных позиций.</p>`;
+      $("detailbox").innerHTML = r.rows.length ? r.rows.map((x) => `<div class="row"><span class="l"><span class="num">${esc(x.number)}</span> ${esc(x.title)}</span><b class="amt">${rub(x.paid)}</b></div>`).join("") : `<p class="muted">Пока нет оплаченных позиций.</p>`;
     };
   });
 }
@@ -223,8 +296,8 @@ function viewPayments() {
   load("/api/payments", "payments", (d) => {
     clearBadge("payments");
     if (!d.payments.length) { $("screen").innerHTML = `<p class="muted">Выставленных счетов нет.</p>`; return; }
-    $("screen").innerHTML = d.payments.map((p) => `<div class="row"><div><div class="t">${esc(p.reason)}</div>
-      <div class="m muted">${esc(p.status)}${p.deadline ? ", до " + fmtDate(p.deadline) : ""}</div></div><b>${rub(Number(p.total) - Number(p.paid || 0))}</b></div>`).join("") +
+    $("screen").innerHTML = d.payments.map((p) => `<div class="row pay"><div class="l"><div class="t">${esc(p.reason)}</div>
+      <div class="m"><span class="badge ${({"Просрочен":"s-lime","Ожидает оплаты":"s-olive"})[p.status] || "s-stone"}"><span>${esc(p.status)}</span></span>${p.deadline ? ` <span class="due">до ${fmtDate(p.deadline)}</span>` : ""}</div></div><b class="amt">${rub(Number(p.total) - Number(p.paid || 0))}</b></div>`).join("") +
       (d.channel ? `<p class="muted">Для оплаты свяжитесь с администратором в личных сообщениях канала.</p>` : `<p class="muted">Оплата прямо в приложении появится на следующем этапе. Пока оплачивайте через финансового бота.</p>`);
   });
 }
@@ -248,30 +321,31 @@ function sheet(html) {
   document.body.appendChild(el); return el;
 }
 function delivCard(i) {
-  const ph = i.photo ? `<img class="ph" loading="lazy" src="${U(i.photo)}" alt="">` : `<div class="ph empty">📦</div>`;
+  const ph = i.photo ? `<img class="ph" loading="lazy" src="${U(i.photo)}" alt="">` : `<div class="ph empty">${ICON.orders}</div>`;
   const lines = [];
   if (i.ready_date) lines.push(`Готов к доставке с ${fmtDate(i.ready_date)}`);
   if (i.storage_until) lines.push(`Хранение до ${fmtDate(i.storage_until)}`);
-  const parts = i.parts ? `<div class="parts">${i.parts.map((p) => `<div class="card">${p.photo ? `<img class="ph" loading="lazy" src="${U(p.photo)}" alt="">` : `<div class="ph empty">📦</div>`}<div><div class="t">${esc(p.number)}</div><div class="m">${esc(p.title)}</div></div></div>`).join("")}</div>` : "";
-  return `<div class="card">${i.parts ? `<div class="ph empty">🧺</div>` : ph}<div style="flex:1">
-    <div class="t">${esc(i.number)} — ${esc(i.title)}</div>
+  const parts = i.parts ? `<div class="parts">${i.parts.map((p) => `<div class="card">${p.photo ? `<img class="ph" loading="lazy" src="${U(p.photo)}" alt="">` : `<div class="ph empty">${ICON.orders}</div>`}<div><div class="t">${esc(p.number)}</div><div class="m">${esc(p.title)}</div></div></div>`).join("")}</div>` : "";
+  return `<div class="card win"><div class="bar"><span>${esc(i.number)}</span><span class="x"></span></div><div class="body">${i.parts ? `<div class="ph empty">${ICON.basket}</div>` : ph}<div style="flex:1">
+    <div class="t">${esc(i.title)}</div>
     ${lines.map((l) => `<div class="m">${esc(l)}</div>`).join("")}
-    <div><span class="badge">${esc(i.status)}</span></div>
-    ${i.note ? `<div class="m">${esc(i.note)}</div>` : ""}${i.tag ? `<div class="cap">${esc(i.tag)}</div>` : ""}${parts}</div></div>`;
+    <div>${chip(i.status)}</div>
+    ${i.note ? `<div class="m">${esc(i.note)}</div>` : ""}${i.tag ? `<div class="cap">${esc(i.tag)}</div>` : ""}${parts}</div></div></div>`;
 }
 function viewDelivery() {
   load("/api/delivery", "delivery", (d, fresh) => {
     if (fresh && (d.pack_notice || d.added_notice)) noticeSheet(d);
     if (!d.items.length) { $("screen").innerHTML = `<p class="muted">Позиций для доставки пока нет.</p>`; return; }
     let top = "";
-    if (d.block) top += `<div class="card" style="display:block"><b>Запись на доставку недоступна</b><div class="m">с ${fmtDate(d.block.from)} по ${fmtDate(d.block.to)}</div><div class="detail">Причина: ${esc(d.block.reason)}</div></div>`;
+    if (d.block) top += `<div class="card warn" style="display:block"><b>Запись на доставку недоступна</b><div class="m">с ${fmtDate(d.block.from)} по ${fmtDate(d.block.to)}</div><div class="detail">Причина: ${esc(d.block.reason)}</div></div>`;
     if (d.waiting > 0) {
       top += `<div class="tabs"><button class="btn primary" id="dreq" ${d.can_request ? "" : "disabled"}>Запись на доставку</button>
         <button class="btn" id="ddef" ${d.can_defer ? "" : "disabled"}>Отложить</button></div>`;
       if (d.packed_block && !d.block) top += `<p class="muted">Текущая посылка уже упакована — новые позиции можно будет записать после её отправки.</p>`;
       else if (d.defer_used) top += `<p class="muted">Отсрочка уже использована.</p>`;
     }
-    $("screen").innerHTML = top + d.items.map(delivCard).join("");
+    $("screen").innerHTML = top + layHtml(d.items, delivCard);
+    bindGrid(d.items, delivCard);
     if ($("dreq")) $("dreq").onclick = () => requestSheet(d);
     if ($("ddef")) $("ddef").onclick = () => deferSheet();
   });

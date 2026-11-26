@@ -4,18 +4,21 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Takomaneki</title>
-<link rel="stylesheet" href="style.css?v=2">
+<script>try{document.documentElement.dataset.theme=JSON.parse(localStorage.getItem("c:theme"))||"light"}catch(e){document.documentElement.dataset.theme="light"}</script>
+<link rel="stylesheet" href="style.css?v=3">
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
 <body>
-<div id="loader" class="loader"><div class="spin"></div><div class="loadtext" id="loadtext"></div></div>
+<div id="loader" class="loader"><div class="rock" aria-hidden="true"><i class="vein"></i><i class="scan"></i><div class="ident"><div class="s">— Identification —</div><div class="tri"><span>△</span><span>△</span></div><hr><div class="l"><span class="lt">LOADING</span><b></b></div><div class="cd">T−<span class="n">90</span> SEC</div><hr><div class="m">Protocol X.XX.X</div><div class="m">Takomaneki</div><div class="m">TZY</div><div class="tri"><span>▽</span><span>▽</span></div></div></div><div class="wake"><span class="ping"></span>Сервер просыпается</div><div class="loadtext" id="loadtext" role="status"></div></div>
 <div id="gate" class="gate" hidden></div>
-<header id="top" hidden><button id="back" aria-label="Назад" hidden>←</button><span id="title"></span><button id="bell" aria-label="Уведомления">🔔</button></header>
+<header id="top" hidden><button id="back" aria-label="Назад" hidden><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button><span id="title"></span><button id="bell" aria-label="Уведомления"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg></button></header>
 <main id="screen" hidden></main>
-<nav id="nav" hidden><button id="home" aria-label="Главная">🏠</button></nav>
+<nav id="nav" hidden><button id="home" aria-label="Главная"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11l8-7 8 7v9H4z"/><path d="M10 20v-5h4v5"/></svg></button></nav>
 <div id="toast" class="toast" hidden></div>
-<script src="config.js?v=2"></script>
-<script>if(/[?&]mock=/.test(location.search))document.write('<script src="mock.js?v=2"><\/script>')</script>
-<script src="app.js?v=2"></script>
+<script>(function(){var el=document.querySelector(".ident .lt");if(!el)return;var T="LOADING",C="ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789#%&*/<>",L=document.getElementById("loader"),f=0;try{if(matchMedia("(prefers-reduced-motion: reduce)").matches)return;}catch(e){}function t(){if(L&&L.hidden)return;var c=f++%66,p=c/3,o="";var n=c>=60?0:Math.min(T.length,Math.ceil(p));for(var i=0;i<n;i++){o+=i<p-2?T[i]:C[Math.random()*C.length|0];}if((c>=36&&c<40)||(c>=45&&c<49))o=" ".repeat(n);el.innerHTML=o+"<b></b>"+" ".repeat(T.length-n);setTimeout(t,55);}t();})();</script>
+<script>(function(){var n=document.querySelector(".ident .cd .n");if(!n)return;var t0=Date.now();function f(){var s=Math.max(0,90-Math.floor((Date.now()-t0)/1000));n.textContent=(s<10?"0":"")+s;var l=document.getElementById("loader");if(s>0&&!(l&&l.hidden))setTimeout(f,250);}f();})();</script>
+<script src="config.js?v=3"></script>
+<script>if(/[?&]mock=/.test(location.search))document.write('<script src="mock.js?v=3"><\/script>')</script>
+<script src="app.js?v=3"></script>
 </body>
 </html>
