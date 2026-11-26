@@ -34,8 +34,8 @@ async function api(path, opts, cacheKey) {
 }
 // сначала показываем сохранённое, потом обновляем
 async function load(path, cacheKey, render) {
-  const cached = cacheGet(cacheKey); if (cached) render(cached); else $("screen").innerHTML = `<div class="spin small"></div>`;
-  try { render(await api(path, null, cacheKey)); }
+  const cached = cacheGet(cacheKey); if (cached) render(cached, false); else $("screen").innerHTML = `<div class="spin small"></div>`;
+  try { render(await api(path, null, cacheKey), true); }
   catch (e) { if (!cached) $("screen").innerHTML = `<p class="muted">Не удалось загрузить. Закройте и откройте заново.</p>`; }
 }
 
@@ -48,20 +48,35 @@ function home() { stack.length = 0; render(); }
 
 function render() {
   const cur = stack[stack.length - 1];
-  $("top").hidden = !cur;
+  $("top").hidden = false;                       // шапка есть всегда: слева «назад» (кроме главной), справа колокольчик
+  $("back").hidden = !cur;
   $("title").textContent = cur ? cur.title || "" : "";
   window.scrollTo(0, 0);
   if (!cur) return viewHome();
-  ({ orders: viewOrders, group: viewGroup, rate: viewRate, payments: viewPayments, profile: viewProfile }[cur.view])(cur.arg);
+  ({ orders: viewOrders, group: viewGroup, rate: viewRate, payments: viewPayments, delivery: viewDelivery, notifications: viewNotifications, profile: viewProfile }[cur.view])(cur.arg);
 }
 
 function viewHome() {
   const tiles = [["orders", "Заказы"], ["rate", "Курс"]];
-  if (ME.can_pay !== false) tiles.push(["payments", "Оплаты"]);
+  tiles.push(["payments", "Оплаты"]);
+  tiles.push(["delivery", "Доставка"]);
   tiles.push(["profile", "Профиль"]);
-  $("screen").innerHTML = `<div class="banner" id="banner"></div><div class="tiles">${tiles.map(([k, t]) => `<button class="tile" data-k="${k}">${t}</button>`).join("")}</div>`;
-  document.querySelectorAll(".tile").forEach((b) => (b.onclick = () => go(b.dataset.k, null, b.textContent)));
+  $("screen").innerHTML = `<div class="banner" id="banner"></div><div class="tiles">${tiles.map(([k, t]) => `<button class="tile" data-k="${k}" data-t="${t}">${t}</button>`).join("")}</div>`;
+  document.querySelectorAll(".tile").forEach((b) => (b.onclick = () => go(b.dataset.k, null, b.dataset.t)));
+  setBadges(cacheGet("badges"));
+  api("/api/badges", null, "badges").then(setBadges).catch(() => {});
 }
+
+// маркер «!» на плитках «Оплаты» и «Доставка»
+function setBadges(b) {
+  const bell = $("bell"); if (bell) { const on = !!(b && b.notifications), d = bell.querySelector(".dot"); if (on && !d) bell.insertAdjacentHTML("beforeend", `<span class="dot sm"></span>`); else if (!on && d) d.remove(); }
+  document.querySelectorAll(".tile").forEach((t) => {
+    const on = !!(b && b[t.dataset.k]), d = t.querySelector(".dot");
+    if (on && !d) t.insertAdjacentHTML("beforeend", `<span class="dot">!</span>`);
+    else if (!on && d) d.remove();
+  });
+}
+function clearBadge(k) { const b = cacheGet("badges") || {}; b[k] = false; cacheSet("badges", b); }
 
 /* ---------- заказы ---------- */
 function orderCard(o) {
@@ -206,19 +221,135 @@ function viewProfile() {
 /* ---------- оплаты ---------- */
 function viewPayments() {
   load("/api/payments", "payments", (d) => {
+    clearBadge("payments");
     if (!d.payments.length) { $("screen").innerHTML = `<p class="muted">Выставленных счетов нет.</p>`; return; }
     $("screen").innerHTML = d.payments.map((p) => `<div class="row"><div><div class="t">${esc(p.reason)}</div>
       <div class="m muted">${esc(p.status)}${p.deadline ? ", до " + fmtDate(p.deadline) : ""}</div></div><b>${rub(Number(p.total) - Number(p.paid || 0))}</b></div>`).join("") +
-      `<p class="muted">Оплата прямо в приложении появится на следующем этапе. Пока оплачивайте через финансового бота.</p>`;
+      (d.channel ? `<p class="muted">Для оплаты свяжитесь с администратором в личных сообщениях канала.</p>` : `<p class="muted">Оплата прямо в приложении появится на следующем этапе. Пока оплачивайте через финансового бота.</p>`);
   });
+}
+
+/* ---------- уведомления (колокольчик) ---------- */
+function viewNotifications() {
+  load("/api/notifications", "notifications", (d, fresh) => {
+    if (fresh) { clearBadge("notifications"); const dot = $("bell").querySelector(".dot"); if (dot) dot.remove(); }
+    if (!d.items.length) { $("screen").innerHTML = `<p class="muted">Уведомлений пока нет.</p>`; return; }
+    $("screen").innerHTML = d.items.map((n) => `<div class="card note ${n.unread ? "unread" : ""}"><div style="flex:1">
+      <div class="m">${esc(fmtDate(n.created))}${n.general ? " · общее" : ""}</div><div class="detail" style="margin-top:2px">${esc(n.text)}</div></div></div>`).join("");
+  });
+}
+
+/* ---------- доставка ---------- */
+function sheet(html) {
+  const old = document.querySelector(".sheet"); if (old) old.remove();
+  const el = document.createElement("div"); el.className = "sheet";
+  el.innerHTML = `<div class="sheetbox">${html}</div>`;
+  el.onclick = (e) => { if (e.target === el) el.remove(); };
+  document.body.appendChild(el); return el;
+}
+function delivCard(i) {
+  const ph = i.photo ? `<img class="ph" loading="lazy" src="${U(i.photo)}" alt="">` : `<div class="ph empty">📦</div>`;
+  const lines = [];
+  if (i.ready_date) lines.push(`Готов к доставке с ${fmtDate(i.ready_date)}`);
+  if (i.storage_until) lines.push(`Хранение до ${fmtDate(i.storage_until)}`);
+  const parts = i.parts ? `<div class="parts">${i.parts.map((p) => `<div class="card">${p.photo ? `<img class="ph" loading="lazy" src="${U(p.photo)}" alt="">` : `<div class="ph empty">📦</div>`}<div><div class="t">${esc(p.number)}</div><div class="m">${esc(p.title)}</div></div></div>`).join("")}</div>` : "";
+  return `<div class="card">${i.parts ? `<div class="ph empty">🧺</div>` : ph}<div style="flex:1">
+    <div class="t">${esc(i.number)} — ${esc(i.title)}</div>
+    ${lines.map((l) => `<div class="m">${esc(l)}</div>`).join("")}
+    <div><span class="badge">${esc(i.status)}</span></div>
+    ${i.note ? `<div class="m">${esc(i.note)}</div>` : ""}${i.tag ? `<div class="cap">${esc(i.tag)}</div>` : ""}${parts}</div></div>`;
+}
+function viewDelivery() {
+  load("/api/delivery", "delivery", (d, fresh) => {
+    if (fresh && (d.pack_notice || d.added_notice)) noticeSheet(d);
+    if (!d.items.length) { $("screen").innerHTML = `<p class="muted">Позиций для доставки пока нет.</p>`; return; }
+    let top = "";
+    if (d.block) top += `<div class="card" style="display:block"><b>Запись на доставку недоступна</b><div class="m">с ${fmtDate(d.block.from)} по ${fmtDate(d.block.to)}</div><div class="detail">Причина: ${esc(d.block.reason)}</div></div>`;
+    if (d.waiting > 0) {
+      top += `<div class="tabs"><button class="btn primary" id="dreq" ${d.can_request ? "" : "disabled"}>Запись на доставку</button>
+        <button class="btn" id="ddef" ${d.can_defer ? "" : "disabled"}>Отложить</button></div>`;
+      if (d.packed_block && !d.block) top += `<p class="muted">Текущая посылка уже упакована — новые позиции можно будет записать после её отправки.</p>`;
+      else if (d.defer_used) top += `<p class="muted">Отсрочка уже использована.</p>`;
+    }
+    $("screen").innerHTML = top + d.items.map(delivCard).join("");
+    if ($("dreq")) $("dreq").onclick = () => requestSheet(d);
+    if ($("ddef")) $("ddef").onclick = () => deferSheet();
+  });
+}
+// плашки: «записаться пока нельзя» и «админ добавил позиции в посылку»; «Ознакомлен» гасит маркер «!»
+function noticeSheet(d) {
+  const text = [d.added_notice ? d.added_notice_text : "", d.pack_notice ? d.pack_notice_text : ""].filter(Boolean);
+  const el = sheet(`<h3>Обратите внимание</h3>${text.map((t) => `<p>${esc(t)}</p>`).join("")}
+    <div class="tabs"><button class="btn primary" id="ok">Ознакомлен</button></div>`);
+  el.querySelector("#ok").onclick = async () => {
+    el.remove(); clearBadge("delivery");
+    if (d.pack_notice) { try { await api("/api/delivery/ack", { method: "POST", headers: headers(), body: "{}" }); } catch (e) {} }
+  };
+}
+function afterAction(msg) {
+  const el = document.querySelector(".sheet"); if (el) el.remove();
+  try { localStorage.removeItem("c:delivery"); } catch (e) {}
+  toast(msg); viewDelivery();
+}
+function requestSheet(d) {
+  const el = sheet(`<h3>Запись на доставку</h3>
+    <div class="muted">Служба доставки</div>
+    ${d.carriers.map((c) => `<label class="opt"><input type="radio" name="carrier" value="${esc(c)}"> ${esc(c)}</label>`).join("")}
+    <input id="cname" placeholder="Название службы доставки" maxlength="40" hidden>
+    <div class="muted" style="margin-top:12px">Страховка</div>
+    <label class="opt"><input type="radio" name="ins" value="1"> Да</label>
+    <label class="opt"><input type="radio" name="ins" value="0"> Нет</label>
+    <div id="insbox" hidden><div class="muted">Укажите сумму страховки. Если хотите уточнить при оформлении, укажите 0</div>
+    <input id="insamt" inputmode="numeric" placeholder="0"></div>
+    <div class="tabs" style="margin-top:12px"><button class="btn primary" id="send">Отправить</button><button class="btn" id="cancel">Отмена</button></div>`);
+  const val = (n) => { const r = el.querySelector(`input[name=${n}]:checked`); return r ? r.value : null; };
+  el.querySelectorAll("input[name=carrier]").forEach((r) => (r.onchange = () => (el.querySelector("#cname").hidden = val("carrier") !== "Другое")));
+  el.querySelectorAll("input[name=ins]").forEach((r) => (r.onchange = () => (el.querySelector("#insbox").hidden = val("ins") !== "1")));
+  el.querySelector("#cancel").onclick = () => el.remove();
+  const btn = el.querySelector("#send");
+  btn.onclick = async () => {
+    const carrier = val("carrier"), ins = val("ins");
+    if (!carrier) return toast("Выберите службу доставки");
+    if (carrier === "Другое" && !el.querySelector("#cname").value.trim()) return toast("Укажите название службы доставки");
+    if (ins === null) return toast("Укажите, нужна ли страховка");
+    btn.disabled = true;
+    try {
+      await api("/api/delivery/request", { method: "POST", headers: headers(), body: JSON.stringify({
+        carrier, carrier_name: el.querySelector("#cname").value, insurance: ins === "1", insurance_amount: el.querySelector("#insamt").value || "0" }) });
+      clearBadge("delivery"); afterAction("Ваша заявка на доставку отправлена");
+    } catch (e) { btn.disabled = false; toast(e.message || "Не удалось отправить"); }
+  };
+}
+function deferSheet() {
+  const el = sheet(`<h3>Отложить</h3>
+    <label class="opt"><input type="radio" name="mode" value="2weeks"> На 2 недели</label>
+    <label class="opt"><input type="radio" name="mode" value="next"> До приезда следующей посылки</label>
+    <p class="muted" id="defnote">Выберите вариант.</p>
+    <div class="tabs"><button class="btn primary" id="send">Отправить</button><button class="btn" id="cancel">Отмена</button></div>`);
+  const val = () => { const r = el.querySelector("input[name=mode]:checked"); return r ? r.value : null; };
+  el.querySelectorAll("input[name=mode]").forEach((r) => (r.onchange = () => {
+    el.querySelector("#defnote").textContent = val() === "2weeks" ? "Отсрочка оформляется только один раз."
+      : "Отсрочка оформляется только один раз. Отложить следующую посылку будет нельзя.";
+  }));
+  el.querySelector("#cancel").onclick = () => el.remove();
+  const btn = el.querySelector("#send");
+  btn.onclick = async () => {
+    if (!val()) return toast("Выберите вариант");
+    btn.disabled = true;
+    try {
+      await api("/api/delivery/defer", { method: "POST", headers: headers(), body: JSON.stringify({ mode: val() }) });
+      clearBadge("delivery"); afterAction("Запись на доставку отложена");
+    } catch (e) { btn.disabled = false; toast(e.message || "Не удалось отправить"); }
+  };
 }
 
 function hideLoader() { const l = $("loader"); if (l) l.hidden = true; }
 function boot() {
   hideLoader(); $("gate").hidden = true; $("screen").hidden = false; $("nav").hidden = false;
   $("back").onclick = back; $("home").onclick = home;
+  $("bell").onclick = () => { const c = stack[stack.length - 1]; if (!c || c.view !== "notifications") go("notifications", null, "Уведомления"); };
   if (tg && tg.BackButton) { tg.BackButton.onClick(back); }
-  render();
+  if (location.hash === "#payments") go("payments", null, "Оплаты"); else render();   // кнопка «Оплатить» из уведомления
 }
 function applyMe(me) {
   ME = me;
