@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Takomaneki</title>
+<link rel="stylesheet" href="style.css">
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body>
+<div id="loader" class="loader"><div class="spin"></div><div class="loadtext" id="loadtext"></div></div>
+<div id="gate" class="gate" hidden></div>
+<header id="top" hidden><button id="back" aria-label="Назад">←</button><span id="title"></span></header>
+<main id="screen" hidden></main>
+<nav id="nav" hidden><button id="home" aria-label="Главная">🏠</button></nav>
+<div id="toast" class="toast" hidden></div>
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
