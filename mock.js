@@ -55,7 +55,7 @@
   ];
   var routes = {
     "/healthz": {},
-    "/api/me": { access: sc === "pending" ? "pending" : "ok", channel: sc === "channel", name: "Тест" },
+    "/api/me": { access: sc === "pending" ? "pending" : "ok", channel: sc === "channel", name: "Тест", is_admin: sc === "admin", admin_api: sc === "admin" ? "" : null },
     "/api/badges": sc === "empty" ? { payments: false, delivery: false, notifications: false } : { payments: true, delivery: true, notifications: true },
     "/api/orders": { groups: groups, orders: orders },
     "/api/rate": { text: "🖤 Текущий курс: 13.2 руб. Курс указан без учета комиссии.", rate_set: true },
@@ -68,9 +68,43 @@
     "/api/delivery": deliv,
     "/api/delivery/request": { ok: true }, "/api/delivery/defer": { ok: true }, "/api/delivery/ack": { ok: true }
   };
+  // ---- админ-раздел (сценарий &scenario=admin): выдуманные ответы веб-панели ----
+  var A = { main: "13.2", ch: "15.5", blocks: [{ id: 1, from: day(20), to: day(34), reason: "Новогодние праздники" }] };
+  var AORD = [{ id: 11, number: "№1011", title: "Фигурка коллекционная", status: "Оформлен", client: "Анна", username: "anna", has_photo: false },
+              { id: 12, number: "№1012", title: "Плюшевая игрушка", status: "На руках у админа", client: "Игорь", username: "igor", has_photo: true }];
+  var STATUSES = ["Предзаказ", "Мероприятие", "Оформлен", "Выкуплен", "В пути на кит.склад", "На кит.складе", "Отправлен в РФ", "Получен в РФ", "На руках у админа", "Оформлена доставка по РФ", "Отправлена по РФ", "Отложено", "Просрок хранения"];
+  function adminMock(path, body) {
+    var p = path.split("?")[0], m;
+    if (p === "/ma/meta") return { statuses: STATUSES, sources: ["Taobao", "Goofish", "Weidian", "Rednote", "Другое"], channels: [{ id: 1, name: "Цу", rate: Number(A.ch) }] };
+    if (p === "/ma/rates") return { main: { rate: A.main, multiplier: 1.1 }, channels: [{ id: 1, name: "Цу", rate: A.ch }] };
+    if (p === "/ma/rates/main") { A.main = String(body.rate).replace(",", "."); return { ok: true, rate: A.main, notified: 3 }; }
+    if (p === "/ma/rates/channel") { A.ch = String(body.rate).replace(",", "."); return { ok: true, rate: A.ch, notified: 2 }; }
+    if (p === "/ma/calc") {
+      var price = Number(String(body.price).replace(",", ".")); if (!(price > 0)) return { __err: "Цена: введите число" };
+      var clean = price * Number(A.main), total = Math.ceil(body.channel_id ? price * Number(A.ch) : clean * 1.1);
+      return { total: total, clean: Math.round(clean * 100) / 100, commission: Math.round((total - clean) * 100) / 100 };
+    }
+    if (p === "/ma/orders") return { orders: AORD, more: false };
+    if ((m = p.match(/^\/ma\/order\/(\d+)\/status$/))) { return { ok: true, old: "Оформлен", status: body.status }; }
+    if ((m = p.match(/^\/ma\/order\/(\d+)\/photo$/))) return { ok: true };
+    if ((m = p.match(/^\/ma\/order\/(\d+)$/))) { var o = AORD.filter(function (x) { return x.id == m[1]; })[0]; return Object.assign({ items: "", comment: "", source: "Taobao", deadline: o.status === "На руках у админа" ? day(12) : null }, o); }
+    if (p === "/ma/users") return { users: [{ id: 5, name: "Анна", username: "anna", telegram_id: 1, nick: "", status: "Заказчик" }, { id: 6, name: "Игорь", username: "igor", telegram_id: 2, nick: "И.", status: "Заказчик" }] };
+    if (p === "/ma/orders/new") return { ok: true, id: 99, number: "№1099" };
+    if (p === "/ma/blocks") return { blocks: A.blocks };
+    if (p === "/ma/blocks/new") { A.blocks.push({ id: 7, from: body.from, to: body.to, reason: body.reason }); return { ok: true, extended: 4, days: 14 }; }
+    if (/^\/ma\/blocks\/\d+\/delete$/.test(p)) { A.blocks = []; return { ok: true }; }
+    if (p === "/ma/deliveries") return { deliveries: [{ id: 1, client: "Анна", status: "Ждет данные", carrier: "СДЭК", via_app: true, insurance: 5000 }, { id: 2, client: "Игорь", status: "Упаковано", carrier: "Самовывоз, Москва", via_app: true, insurance: null }] };
+    return null;
+  }
   var realFetch = window.fetch;
   window.fetch = function (url, opts) {
     var p = String(url).split("?")[0];
+    if (p.indexOf("/ma/") === 0) {
+      var body = {}; try { body = opts && typeof opts.body === "string" ? JSON.parse(opts.body) : {}; } catch (e) {}
+      var res = adminMock(String(url), body);
+      if (/\/photo$/.test(p) && !(opts && opts.method === "POST")) return Promise.resolve(new Response('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect width="10" height="10" fill="#6f9fd9"/></svg>', { headers: { "Content-Type": "image/svg+xml" } }));
+      return new Promise(function (ok) { setTimeout(function () { ok(res && res.__err ? new Response(JSON.stringify({ error: res.__err }), { status: 400 }) : res ? new Response(JSON.stringify(res), { status: 200, headers: { "Content-Type": "application/json" } }) : new Response("{}", { status: 404 })); }, 200); });
+    }
     if (!(p in routes)) return realFetch.apply(this, arguments);
     var delay = sc === "slow" ? 8000 : 250;
     return new Promise(function (res, rej) {

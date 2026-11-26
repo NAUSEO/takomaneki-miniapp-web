@@ -20,6 +20,7 @@ const ICON = {
   payments: I('<path d="M4 6.5h13.5a2.5 2.5 0 0 1 2.5 2.5v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7.5a1 1 0 0 1 1-1z"/><path d="M4 6.5L15 3v3.5"/><path d="M15.5 11.5H20v5h-4.5a2.5 2.5 0 0 1 0-5z"/>'),
   delivery: I('<path d="M1.4 4.7h13v10.6H1.4zM14.4 8.3h4.7l3.5 3.5v3.5h-8.2"/><circle cx="6.1" cy="17.1" r="2.1"/><circle cx="17.9" cy="17.1" r="2.1"/>'),
   profile: I('<circle cx="12" cy="8" r="4.5"/><path d="M3.5 21.5c.8-5 4.3-8 8.5-8s7.7 3 8.5 8"/>'),
+  admin: I('<path d="M12 2.5l8 3v6c0 5-3.4 8.6-8 10-4.6-1.4-8-5-8-10v-6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/>'),
   bell: I('<path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 20a2 2 0 0 0 4 0"/>'),
   home: I('<path d="M4 11l8-7 8 7v9H4z"/><path d="M10 20v-5h4v5"/>'),
   back: I('<path d="M15 5l-7 7 7 7"/>'),
@@ -94,14 +95,23 @@ function render() {
   $("title").textContent = cur ? cur.title || "" : "";
   window.scrollTo(0, 0);
   if (!cur) return viewHome();
-  ({ orders: viewOrders, group: viewGroup, rate: viewRate, payments: viewPayments, delivery: viewDelivery, notifications: viewNotifications, profile: viewProfile }[cur.view])(cur.arg);
+  ({ orders: viewOrders, group: viewGroup, rate: viewRate, payments: viewPayments, delivery: viewDelivery, notifications: viewNotifications, profile: viewProfile, admin: viewAdminLazy }[cur.view])(cur.arg);
 }
 
+// админ-раздел подгружается отдельным файлом, только когда его открывают
+function viewAdminLazy() {
+  if (window.viewAdmin) return window.viewAdmin();
+  $("screen").innerHTML = `<div class="spin small"></div>`;
+  const sc = document.createElement("script"); sc.src = "admin.js?v=" + (window.ASSET_V || "1");
+  sc.onload = () => window.viewAdmin(); sc.onerror = () => ($("screen").innerHTML = `<p class="muted">Не удалось загрузить админ-раздел.</p>`);
+  document.head.appendChild(sc);
+}
 function viewHome() {
-  const tiles = [["orders", "Заказы"], ["rate", "Курс"]]; const CAP={orders:"SEC.01",rate:"SEC.02",payments:"SEC.03",delivery:"SEC.04",profile:"SEC.05"};
+  const tiles = [["orders", "Заказы"], ["rate", "Курс"]]; const CAP={orders:"SEC.01",rate:"SEC.02",payments:"SEC.03",delivery:"SEC.04",profile:"SEC.05",admin:"SEC.06"};
   tiles.push(["payments", "Оплаты"]);
   tiles.push(["delivery", "Доставка"]);
   tiles.push(["profile", "Профиль"]);
+  if (ME && ME.is_admin && ME.admin_api != null) tiles.push(["admin", "Админ"]);
   $("screen").innerHTML = `<div class="banner" id="banner"></div><div class="tiles">${tiles.map(([k, t]) => `<button class="tile t-${k}" data-cap="${CAP[k]}" data-k="${k}" data-t="${t}"><span class="bar"><span class="tl">${t}</span><span class="x"></span></span><span class="ico">${ICON[k]}</span></button>`).join("")}</div>`;
   document.querySelectorAll(".tile").forEach((b) => (b.onclick = () => go(b.dataset.k, null, b.dataset.t)));
   setBadges(cacheGet("badges"));
