@@ -256,9 +256,15 @@ function viewGroup(arg) {
 }
 
 /* ---------- курс ---------- */
+// «Текущий курс: 13.2 руб.» — первая строка, остальное («Курс указан без учета комиссии.») — второй строкой мельче
+function rateHtml(text) {
+  const t = String(text).replace(/^[^\p{L}\p{N}]+/u, "");
+  const m = t.match(/^(.*?\.)\s+([\s\S]+)$/);
+  return m ? `<div class="big rate">${esc(m[1])}<div class="rate2">${esc(m[2])}</div></div>` : `<div class="big rate">${esc(t)}</div>`;
+}
 function viewRate() {
   load("/api/rate", "rate", (data) => {
-    $("screen").innerHTML = `<div class="card win"><div class="bar"><span>Курс</span><span class="x"></span></div><div class="body"><div class="big rate">${esc(String(data.text).replace(/^[^\p{L}\p{N}]+/u, ""))}</div></div></div>` + (data.rate_set ? `
+    $("screen").innerHTML = `<div class="card win"><div class="bar"><span>Курс</span><span class="x"></span></div><div class="body">${rateHtml(data.text)}</div></div>` + (data.rate_set ? `
       <div class="card win"><div class="bar"><span>Расчёт стоимости</span><span class="x"></span></div><div class="body col"><div class="muted">Введите цену товара в юанях</div>
       <input id="price" inputmode="decimal" placeholder="Например, 250">
       <button class="btn primary" id="calc">Рассчитать</button><div class="big res" id="calcres"></div></div></div>` : "");
