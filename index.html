@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Takomaneki</title>
 <script>try{document.documentElement.dataset.theme=JSON.parse(localStorage.getItem("c:theme"))||"light"}catch(e){document.documentElement.dataset.theme="light"}</script>
-<link rel="stylesheet" href="style.css?v=4">
+<link rel="stylesheet" href="style.css?v=5">
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
 <body>
@@ -17,8 +17,8 @@
 <div id="toast" class="toast" hidden></div>
 <script>(function(){var el=document.querySelector(".ident .lt");if(!el)return;var T="LOADING",C="ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789#%&*/<>",L=document.getElementById("loader"),f=0;try{if(matchMedia("(prefers-reduced-motion: reduce)").matches)return;}catch(e){}function t(){if(L&&L.hidden)return;var c=f++%66,p=c/3,o="";var n=c>=60?0:Math.min(T.length,Math.ceil(p));for(var i=0;i<n;i++){o+=i<p-2?T[i]:C[Math.random()*C.length|0];}if((c>=36&&c<40)||(c>=45&&c<49))o=" ".repeat(n);el.innerHTML=o+"<b></b>"+" ".repeat(T.length-n);setTimeout(t,55);}t();})();</script>
 <script>(function(){var n=document.querySelector(".ident .cd .n");if(!n)return;var t0=Date.now();function f(){var s=Math.max(0,90-Math.floor((Date.now()-t0)/1000));n.textContent=(s<10?"0":"")+s;var l=document.getElementById("loader");if(s>0&&!(l&&l.hidden))setTimeout(f,250);}f();})();</script>
-<script src="config.js?v=4"></script>
-<script>if(/[?&]mock=/.test(location.search))document.write('<script src="mock.js?v=4"><\/script>')</script>
-<script src="app.js?v=4"></script>
+<script src="config.js?v=5"></script>
+<script>if(/[?&]mock=/.test(location.search))document.write('<script src="mock.js?v=5"><\/script>')</script>
+<script src="app.js?v=5"></script>
 </body>
 </html>

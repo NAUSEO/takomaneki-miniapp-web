@@ -258,13 +258,14 @@ function viewGroup(arg) {
 /* ---------- курс ---------- */
 function viewRate() {
   load("/api/rate", "rate", (data) => {
-    $("screen").innerHTML = `<div class="card win"><div class="bar"><span>Курс</span><span class="x"></span></div><div class="body"><div class="big rate">${esc(data.text)}</div></div></div>` + (data.rate_set ? `
+    $("screen").innerHTML = `<div class="card win"><div class="bar"><span>Курс</span><span class="x"></span></div><div class="body"><div class="big rate">${esc(String(data.text).replace(/^[^\p{L}\p{N}]+/u, ""))}</div></div></div>` + (data.rate_set ? `
       <div class="card win"><div class="bar"><span>Расчёт стоимости</span><span class="x"></span></div><div class="body col"><div class="muted">Введите цену товара в юанях</div>
       <input id="price" inputmode="decimal" placeholder="Например, 250">
       <button class="btn primary" id="calc">Рассчитать</button><div class="big res" id="calcres"></div></div></div>` : "");
     if (!data.rate_set) return;
     $("calc").onclick = async () => {
-      try { const r = await api("/api/calc", { method: "POST", body: JSON.stringify({ price: $("price").value }) }); $("calcres").textContent = r.text; }
+      try { const r = await api("/api/calc", { method: "POST", body: JSON.stringify({ price: $("price").value }) }); const n = Number(r.amount); const sum = isFinite(n) ? n.toLocaleString("ru-RU") : esc(r.amount);
+        $("calcres").innerHTML = `<div class="rline"><i class="rdot"></i>${sum} руб</div><div class="rnote"><b>Учитывайте:</b><br>– Цена ориентир из-за периодических скачков курса;<br>– Доставка по Китаю может быть платной.</div>`; }
       catch (e) { $("calcres").textContent = (e.data && e.data.error) || "Ошибка расчёта"; }
     };
   });
