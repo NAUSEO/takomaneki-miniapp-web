@@ -11,7 +11,7 @@
     const h = { "X-Init-Data": (tg && tg.initData) || "" };
     if (o.json) { h["Content-Type"] = "application/json"; o.body = JSON.stringify(o.json); delete o.json; }
     o.headers = h;
-    const slow = setTimeout(() => toast("Сервер просыпается, подождите немного…"), 5000);
+    const slow = setTimeout(() => toast("Панель просыпается, это до минуты…"), 4000);
     try {
       const r = await fetch(ME.admin_api + path, o);
       if (o.blob) return r.ok ? r.blob() : null;

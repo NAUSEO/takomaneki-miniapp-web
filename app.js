@@ -501,9 +501,18 @@ function deferSheet() {
   };
 }
 
-function hideLoader() { const l = $("loader"); if (l) l.hidden = true; }
+/* заставка показывается минимум ~1,6 с от открытия: иначе при быстром сервере она мелькает и анимации не видно */
+function hideLoader() { const l = $("loader"); if (!l) return; const wait = Math.max(0, 1600 - Math.round(performance.now())); wait ? setTimeout(() => { l.hidden = true; }, wait) : (l.hidden = true); }
+/* админам: «будим» панель на Render в фоне сразу при запуске, чтобы вкладки «Админ» не ждали по минуте */
+let panelWoken = false;
+function wakePanel() {
+  if (panelWoken || !ME || !ME.is_admin || !ME.admin_api) return;
+  panelWoken = true;
+  try { fetch(ME.admin_api + "/ma/ping", { headers: { "X-Init-Data": (tg && tg.initData) || "" } }).catch(() => {}); } catch (e) {}
+}
+
 function boot() {
-  hideLoader(); $("gate").hidden = true; $("screen").hidden = false; $("nav").hidden = false;
+  hideLoader(); wakePanel(); $("gate").hidden = true; $("screen").hidden = false; $("nav").hidden = false;
   $("back").onclick = back; $("home").onclick = home;
   $("bell").onclick = () => { const c = stack[stack.length - 1]; if (!c || c.view !== "notifications") go("notifications", null, "Уведомления"); };
   if (tg && tg.BackButton) { tg.BackButton.onClick(back); }
@@ -516,15 +525,14 @@ function applyMe(me) {
   return true;
 }
 async function start() {
+  /* заставка держится, пока сервер не ответил (он на Render может «просыпаться»): иначе главная открывается пустой, а каждый раздел ждёт отдельно */
   const saved = cacheGet("me");
-  let booted = false;
-  if (saved && saved.access === "ok") { ME = saved; boot(); booted = true; }     // приложение открывается сразу
   let fresh;
   try { fresh = await api("/api/me", null, "me"); }
-  catch (e) { if (booted) return; return gate("Откройте приложение из Телеграма."); }
+  catch (e) { if (saved && saved.access === "ok") { ME = saved; boot(); return; } return gate("Откройте приложение из Телеграма."); }
   if (applyMe(fresh) !== true) { $("screen").hidden = true; $("nav").hidden = true; $("top").hidden = true; return; }
   ME = fresh;
-  if (!booted) boot(); else if (!stack.length) render();
+  boot();
 }
 function gate(html) { hideLoader(); const g = $("gate"); g.innerHTML = html; g.hidden = false; }
 start();
