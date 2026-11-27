@@ -65,7 +65,7 @@ function cacheGet(k) { try { return JSON.parse(localStorage.getItem("c:" + k)); 
 function cacheSet(k, v) { try { localStorage.setItem("c:" + k, JSON.stringify(v)); } catch (e) {} }
 
 async function api(path, opts, cacheKey) {
-  const slow = setTimeout(() => { toast("Сервер просыпается, подождите немного…"); const lt = $("loadtext"); if (lt) lt.textContent = "Сервер просыпается, подождите немного…"; }, 5000);
+  const slow = setTimeout(() => { toast("Сервер просыпается, подождите немного…"); const lt = $("loadtext"); if (lt) lt.textContent = "Сервер просыпается\nПодождите немного…"; }, 5000);
   try {
     const r = await fetch(API + path, Object.assign({ headers: headers() }, opts || {}));
     const data = await r.json().catch(() => ({}));
@@ -476,3 +476,14 @@ async function start() {
 }
 function gate(html) { hideLoader(); const g = $("gate"); g.innerHTML = html; g.hidden = false; }
 start();
+
+/* кнопка «наверх»: появляется после прокрутки вниз */
+(function () {
+  const b = document.createElement("button"); b.id = "totop"; b.hidden = true; b.setAttribute("aria-label", "Наверх");
+  b.innerHTML = '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 15l7-7 7 7"/></svg>';
+  document.body.appendChild(b);
+  const upd = () => { b.hidden = (window.scrollY || document.documentElement.scrollTop) < 300; };
+  window.addEventListener("scroll", upd, { passive: true });
+  b.onclick = () => { let sm = true; try { sm = !matchMedia("(prefers-reduced-motion: reduce)").matches; } catch (e) {} window.scrollTo({ top: 0, behavior: sm ? "smooth" : "auto" }); };
+  upd();
+})();

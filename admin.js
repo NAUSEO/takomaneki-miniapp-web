@@ -3,7 +3,7 @@
 (function () {
   "use strict";
   const ADM = { tab: "rates", meta: null };
-  const TABS = [["rates", "Курс"], ["calc", "Расчёт"], ["orders", "Заказы"], ["deliv", "Доставка"], ["people", "Клиенты"]];
+  const TABS = [["rates", "Курс"], ["calc", "Расчёт"], ["orders", "Заказы"], ["deliv", "Доставка"], ["people", "Клиенты"], ["fin", "Финансы"]];
 
   async function aapi(path, opts) {
     if (!ME || ME.admin_api == null) throw new Error("Админ-раздел не настроен");
@@ -28,7 +28,7 @@
     if (!ADM.meta) { $("screen").innerHTML = `<div class="spin small"></div>`; try { ADM.meta = await aapi("/ma/meta"); } catch (e) { $("screen").innerHTML = `<p class="muted">Не удалось открыть админ-раздел: ${esc(errText(e))}</p>`; return; } }
     $("screen").innerHTML = `<div class="tabs atabs">${TABS.map(([k, t]) => `<button class="btn ${ADM.tab === k ? "primary" : ""}" data-t="${k}">${t}</button>`).join("")}</div><div id="atab"></div>`;
     document.querySelectorAll(".atabs .btn").forEach((b) => (b.onclick = () => { ADM.tab = b.dataset.t; window.viewAdmin(); }));
-    ({ rates: tabRates, calc: tabCalc, orders: tabOrders, deliv: tabDeliv, people: tabPeople }[ADM.tab])();
+    ({ rates: tabRates, calc: tabCalc, orders: tabOrders, deliv: tabDeliv, people: tabPeople, fin: tabFin }[ADM.tab])();
   };
 
   /* ---------- Курс ---------- */
@@ -165,7 +165,8 @@
       <div class="tabs"><button class="btn primary" id="usave">Сохранить профиль</button></div>
       <label class="muted">Права / статус</label><select id="ust">${userStatusOpts(u.status)}</select>
       <div class="tabs"><button class="btn primary" id="ustb">Сменить статус</button>${u.status === "Архив" ? `<button class="btn" id="uun">Вернуть из архива</button>` : `<button class="btn" id="uar">В архив</button>`}</div>
-      <div class="tabs"><button class="btn" id="ux">Закрыть</button></div>`);
+      <div class="tabs"><button class="btn" id="udep">Депозит</button><button class="btn" id="ux">Закрыть</button></div>`);
+    $("udep").onclick = () => depositSheet(u);
     const post = async (path, json, msg) => { try { await aapi(path, { method: "POST", json }); toast(msg); el.remove(); refresh(); } catch (e) { toast(errText(e)); } };
     $("ux").onclick = () => el.remove();
     $("usave").onclick = () => post("/ma/people/" + u.id + "/edit", { nickname: $("un").value, tags: $("ut").value, comment: $("uc").value, channel_id: $("uch").value }, "Профиль сохранён");
@@ -183,5 +184,46 @@
       <div class="tabs"><button class="btn primary" id="nsv">Создать</button><button class="btn" id="nxx">Отмена</button></div>`);
     $("nxx").onclick = () => el.remove();
     $("nsv").onclick = async () => { try { await aapi("/ma/people/new", { method: "POST", json: { nickname: $("nn").value, tags: $("nt2").value, comment: $("nc2").value, status: $("ns2").value } }); toast("Карточка создана"); el.remove(); refresh(); } catch (e) { toast(errText(e)); } };
+  }
+
+  /* ---------- Финансы: платежи на проверке, счета, отсрочки, депозит ---------- */
+  const FIN_TABS = [["review", "Проверка"], ["issued", "Счета"], ["deferred", "Отсрочки"]];
+  function tabFin(sub) {
+    sub = sub || tabFin.sub || "review"; tabFin.sub = sub;
+    $("atab").innerHTML = `<div class="tabs">${FIN_TABS.map(([k, t]) => `<button class="btn ${k === sub ? "primary" : ""}" data-f="${k}">${t}</button>`).join("")}</div><div id="flist"><div class="spin small"></div></div>`;
+    document.querySelectorAll("[data-f]").forEach((b) => (b.onclick = () => tabFin(b.dataset.f)));
+    aapi("/ma/fin?tab=" + sub).then((d) => {
+      $("flist").innerHTML = d.payments.length ? d.payments.map((x) => `<button class="row" data-p="${x.id}"><span class="l">${esc(x.client)} · ${esc(x.reason)}<span class="cap">${esc(x.positions)}${x.deadline ? " · до " + esc(fmtDate(x.deadline)) : ""}${x.response ? " · «" + esc(x.response) + "»" : ""}</span></span><b>${money(x.left || x.total)} ₽</b></button>`).join("") + (d.more ? `<p class="muted">Показаны первые 60.</p>` : "") : `<p class="muted">${sub === "review" ? "Нет платежей, ждущих проверки" : "Пусто"}</p>`;
+      document.querySelectorAll("#flist [data-p]").forEach((b) => (b.onclick = () => paySheet(d.payments.find((x) => String(x.id) === b.dataset.p), sub)));
+    }).catch((e) => { $("flist").innerHTML = `<p class="muted">${esc(errText(e))}</p>`; });
+  }
+
+  function paySheet(x, sub) {
+    const rows = `<div class="rl"><span>Сумма</span><b>${money(x.total)} ₽</b></div><div class="rl"><span>Оплачено</span><b>${money(x.paid)} ₽</b></div><div class="rl"><span>Осталось</span><b>${money(x.left)} ₽</b></div>`;
+    const el = sheet(`<h3>${esc(x.client)}${x.channel ? " · канал" : ""}</h3><div class="muted">${esc(x.reason)} · ${esc(x.status)}</div>
+      <div class="muted">${esc(x.positions)}</div>${x.response ? `<div class="rnote">Ответ клиента: «${esc(x.response)}»</div>` : ""}${x.note ? `<div class="rnote">Заметка: ${esc(x.note)}</div>` : ""}
+      <div class="cres" style="margin:10px 0">${rows}</div>
+      ${x.channel ? "" : `<div class="muted">Клиент получит то же сообщение, что из панели</div>`}
+      <div class="tabs"><button class="btn primary" id="pf">${x.channel ? "Оплачено" : "Подтвердить полностью"}</button></div>
+      ${x.channel ? "" : `<input id="pa" inputmode="decimal" placeholder="Сумма частичной оплаты"><div class="tabs"><button class="btn" id="pp">Подтвердить часть</button></div>`}
+      <div class="tabs">${sub === "review" ? `<button class="btn" id="pr">Отклонить</button><button class="btn" id="pv">Вернуть в статус</button>` : ""}<button class="btn" id="pz">В архив</button><button class="btn" id="px">Закрыть</button></div>`);
+    const act = async (path, json, msg, ask) => { if (ask && !confirm(ask)) return; try { const r = await aapi("/ma/fin/" + x.id + path, { method: "POST", json: json || {} }); toast(msg(r)); el.remove(); tabFin(sub); } catch (e) { toast(errText(e)); } };
+    $("px").onclick = () => el.remove();
+    $("pf").onclick = () => act(x.channel ? "/channel-paid" : "/confirm-full", {}, (r) => x.channel ? "Отмечено оплаченным, счёт в архиве" : "Платёж подтверждён" + (r.notified ? ", клиент уведомлён" : ""), "Подтвердить оплату?");
+    if ($("pp")) $("pp").onclick = () => act("/confirm-partial", { amount: $("pa").value }, (r) => r.fully_paid ? "Оплачено полностью" : "Частично, осталось " + money(r.remaining) + " ₽");
+    if ($("pr")) $("pr").onclick = () => act("/reject", {}, (r) => "Отклонено" + (r.notified ? ", клиент уведомлён" : ""), "Отклонить платёж? Клиент получит уведомление.");
+    if ($("pv")) $("pv").onclick = () => act("/revert", {}, () => "Возвращено в исходный статус");
+    $("pz").onclick = () => act("/archive", {}, () => "Отправлено в архив", "Отправить в архив?");
+  }
+
+  async function depositSheet(u) {
+    let d; try { d = await aapi("/ma/people/" + u.id + "/deposit"); } catch (e) { return toast(errText(e)); }
+    const el = sheet(`<h3>Депозит · ${esc(u.name)}</h3>
+      <div class="cres" style="margin:8px 0"><div class="rl"><span>Оплачено за позиции</span><b>${money(d.stats.positions_sum)} ₽</b></div><div class="rl"><span>Оплачено за доставку</span><b>${money(d.stats.delivery_sum)} ₽</b></div><div class="rl"><span>Всего</span><b>${money(d.stats.total_sum)} ₽</b></div></div>
+      <label class="muted">Сумма депозита, ₽</label><input id="dm" inputmode="decimal" value="${esc(String(d.amount))}">
+      <label class="muted">Комментарий</label><input id="dc" value="${esc(d.comment)}">
+      <div class="tabs"><button class="btn primary" id="ds">Сохранить</button><button class="btn" id="dx">Закрыть</button></div>`);
+    $("dx").onclick = () => el.remove();
+    $("ds").onclick = async () => { try { await aapi("/ma/people/" + u.id + "/deposit", { method: "POST", json: { amount: $("dm").value, comment: $("dc").value } }); toast("Депозит сохранён"); el.remove(); } catch (e) { toast(errText(e)); } };
   }
 })();

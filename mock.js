@@ -88,6 +88,9 @@
     if ((m = p.match(/^\/ma\/order\/(\d+)\/status$/))) { return { ok: true, old: "Оформлен", status: body.status }; }
     if ((m = p.match(/^\/ma\/order\/(\d+)\/photo$/))) return { ok: true };
     if ((m = p.match(/^\/ma\/order\/(\d+)$/))) { var o = AORD.filter(function (x) { return x.id == m[1]; })[0]; return Object.assign({ items: "", comment: "", source: "Taobao", deadline: o.status === "На руках у админа" ? day(12) : null }, o); }
+    if (p === "/ma/fin") return { payments: [{ id: 11, client: "Анна", channel: false, reason: "Оплата за позицию", status: "На проверке", total: 1595, paid: 0, left: 1595, positions: "№1001 Фигурка", deadline: "2026-12-05", response: "Оплатила, чек в личке", note: "" }, { id: 12, client: "Озон-карточка", channel: true, reason: "Оплата за доставку по РФ", status: "Выставлен", total: 450, paid: 0, left: 450, positions: "", deadline: null, response: "", note: "" }], more: false };
+    if (/^\/ma\/fin\/\d+\//.test(p)) return { ok: true, notified: true, fully_paid: false, remaining: 100 };
+    if (/^\/ma\/people\/\d+\/deposit$/.test(p)) return { amount: 500, comment: "", stats: { positions_sum: 12000, delivery_sum: 3000, total_sum: 15000 }, ok: true };
     if (p === "/ma/people") return { users: [{ id: 5, name: "Анна", username: "anna", nick: "", comment: "", tags: "VIP", status: "Заказчик", manual: false, channel_id: null }, { id: 7, name: "Озон-карточка", username: "", nick: "Озон-карточка", comment: "ручная", tags: "", status: "Заказчик", manual: true, channel_id: 1 }], more: false };
     if (p === "/ma/people/new" || /^\/ma\/people\/\d+\/(edit|status)$/.test(p)) return { ok: true, id: 8 };
     if (p === "/ma/users") return { users: [{ id: 5, name: "Анна", username: "anna", telegram_id: 1, nick: "", status: "Заказчик" }, { id: 6, name: "Игорь", username: "igor", telegram_id: 2, nick: "И.", status: "Заказчик" }] };
