@@ -312,11 +312,63 @@ function viewProfile() {
 function viewPayments() {
   load("/api/payments", "payments", (d) => {
     clearBadge("payments");
-    if (!d.payments.length) { $("screen").innerHTML = `<p class="muted">Выставленных счетов нет.</p>`; return; }
-    $("screen").innerHTML = d.payments.map((p) => `<div class="row pay"><div class="l"><div class="t">${esc(p.reason)}</div>
-      <div class="m"><span class="badge ${({"Просрочен":"s-lime","Ожидает оплаты":"s-olive"})[p.status] || "s-stone"}"><span>${esc(p.status)}</span></span>${p.deadline ? ` <span class="due">до ${fmtDate(p.deadline)}</span>` : ""}</div></div><b class="amt">${rub(Number(p.total) - Number(p.paid || 0))}</b></div>`).join("") +
-      (d.channel ? `<p class="muted">Для оплаты свяжитесь с администратором в личных сообщениях канала.</p>` : `<p class="muted">Оплата прямо в приложении появится на следующем этапе. Пока оплачивайте через финансового бота.</p>`);
+    const waiting = (d.waiting || []).length ? `<div class="rnote">В обработке (ждут проверки): ${d.waiting.map((w) => esc(w.reason) + (w.positions ? " — " + esc(w.positions) : "") + ", " + rub(w.total)).join("; ")}</div>` : "";
+    if (!d.payments.length) { $("screen").innerHTML = `<p class="muted">Выставленных счетов нет.</p>` + waiting; return; }
+    const sel = new Set(d.payments.length === 1 && d.can_pay ? [d.payments[0].id] : []);
+    const draw = () => {
+      const total = d.payments.filter((p) => sel.has(p.id)).reduce((a, p) => a + Number(p.left), 0);
+      $("screen").innerHTML = d.payments.map((p) => `<${d.can_pay ? "button" : "div"} class="row pay ${sel.has(p.id) ? "sel" : ""}" data-id="${p.id}"><div class="l"><div class="t">${d.can_pay ? `<span class="chk-m">${sel.has(p.id) ? "✓" : ""}</span>` : ""}${esc(p.reason)}</div>
+        ${p.positions ? `<div class="m">${esc(p.positions)}</div>` : ""}
+        <div class="m"><span class="badge ${({"Просрочен":"s-lime","Ожидает оплаты":"s-olive"})[p.status] || "s-stone"}"><span>${esc(p.status)}</span></span>${p.deadline ? ` <span class="due">до ${fmtDate(p.deadline)}</span>` : ""}</div></div><b class="amt">${rub(p.left)}</b></${d.can_pay ? "button" : "div"}>`).join("") + waiting +
+        (d.can_pay ? `<div class="paybar"><div class="muted">${sel.size ? `Выбрано: ${sel.size}, к оплате ${rub(total)}` : "Нажмите на платёж, чтобы выбрать"}</div>
+          <div class="duo"><button class="btn primary" id="payfull" ${sel.size ? "" : "disabled"}>Оплатить</button><button class="btn" id="paypart" ${sel.size ? "" : "disabled"}>Оплатить часть</button></div>
+          <div class="duo"><button class="btn" id="paydef" ${sel.size ? "" : "disabled"}>Отсрочка</button>${d.payments.length > 1 ? `<button class="btn" id="payall">${sel.size === d.payments.length ? "Снять выбор" : "Выбрать все"}</button>` : ""}</div></div>`
+          : (d.channel ? `<p class="muted">Для оплаты свяжитесь с администратором в личных сообщениях канала.</p>` : ""));
+      if (!d.can_pay) return;
+      document.querySelectorAll(".row.pay").forEach((b) => (b.onclick = () => { const id = Number(b.dataset.id); sel.has(id) ? sel.delete(id) : sel.add(id); draw(); }));
+      const chosen = () => d.payments.filter((p) => sel.has(p.id));
+      $("payfull").onclick = () => paySheet(d, chosen(), "full");
+      $("paypart").onclick = () => paySheet(d, chosen(), "partial");
+      $("paydef").onclick = () => payDeferSheet(d, chosen());
+      if ($("payall")) $("payall").onclick = () => { if (sel.size === d.payments.length) sel.clear(); else d.payments.forEach((p) => sel.add(p.id)); draw(); };
+    };
+    draw();
   });
+}
+
+function payList(list) { return list.map((p, i) => `<div class="rl"><span>${i + 1}. ${esc(p.reason)}${p.positions ? " — " + esc(p.positions) : ""}</span><b>${rub(p.left)}</b></div>`).join("") + `<div class="rl"><span>Итого</span><b>${rub(list.reduce((a, p) => a + Number(p.left), 0))}</b></div>`; }
+
+function paySheet(d, list, mode) {
+  const el = sheet(`<h3>${mode === "partial" ? "Оплатить часть" : "Оплатить"}</h3>
+    ${d.requisites ? `<div class="reqs">${esc(d.requisites)}</div>` : ""}
+    <div class="cres" style="margin:10px 0">${payList(list)}</div>
+    <p class="muted">${mode === "partial" ? "Переведите нужную сумму (можно меньше итоговой) и напишите ниже сумму, банк и время перевода." : "Переведите сумму и напишите ниже сумму, банк и время перевода."}</p>
+    <textarea id="paytxt" rows="3" maxlength="1000" placeholder="Например: 1595 ₽, Сбербанк, 14:30"></textarea>
+    <div class="duo"><button class="btn primary" id="paysend">Отправить</button><button class="btn" id="payno">Назад</button></div>`);
+  $("payno").onclick = () => el.remove();
+  $("paysend").onclick = async () => {
+    const text = $("paytxt").value.trim(); if (!text) { toast("Напишите сумму, банк и время перевода"); return; }
+    $("paysend").disabled = true;
+    try { await api("/api/payments/pay", { method: "POST", headers: headers(), body: JSON.stringify({ ids: list.map((p) => p.id), mode, text }) }); el.remove(); toast("Ваш платёж в обработке. Ожидайте смену статуса"); viewPayments(); }
+    catch (e) { $("paysend").disabled = false; toast(e.message || "Не получилось отправить"); }
+  };
+}
+
+function payDeferSheet(d, list) {
+  const ok = list.filter((p) => p.can_defer), used = list.filter((p) => !p.can_defer);
+  const usedTxt = used.length ? `<p class="muted">По платежам ${used.map((p) => esc(p.reason)).join(", ")} отсрочка уже была — без изменений.</p>` : "";
+  if (!ok.length) { sheet(`<h3>Отсрочка</h3><p class="muted">Отсрочка уже была использована по выбранным платежам. При необходимости обратитесь к администратору.</p><div class="duo"><button class="btn" onclick="this.closest('.sheet').remove()">Понятно</button></div>`); return; }
+  const el = sheet(`<h3>Отсрочка на ${d.deferral_days} дней</h3><div class="cres" style="margin:10px 0">${payList(ok)}</div>${usedTxt}
+    <p class="muted">Отсрочка выдаётся один раз на платёж. Срок считается от текущего дедлайна (если он прошёл — от сегодня).</p>
+    <div class="duo"><button class="btn primary" id="defyes">Подтвердить</button><button class="btn" id="defno">Назад</button></div>`);
+  $("defno").onclick = () => el.remove();
+  $("defyes").onclick = async () => {
+    $("defyes").disabled = true;
+    try {
+      const r = await api("/api/payments/defer", { method: "POST", headers: headers(), body: JSON.stringify({ ids: ok.map((p) => p.id) }) });
+      el.remove(); toast(r.granted.length ? "Отсрочка выдана. Новая дата: " + r.granted.map((g) => fmtDate(g.date)).join(", ") : "Отсрочка уже была использована"); viewPayments();
+    } catch (e) { $("defyes").disabled = false; toast(e.message || "Не получилось"); }
+  };
 }
 
 /* ---------- уведомления (колокольчик) ---------- */

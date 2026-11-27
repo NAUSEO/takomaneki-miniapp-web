@@ -45,9 +45,9 @@
   if (sc === "empty") { deliv.items = []; deliv.waiting = 0; }
 
   var pays = sc === "empty" ? [] : [
-    { reason: "Оплата позиций", status: "Ожидает оплаты", deadline: day(4), total: 5400, paid: 0 },
-    { reason: "Доставка №7", status: "Просрочен", deadline: day(-2), total: 900, paid: 0 },
-    { reason: "Доп. платёж", status: "Частично оплачен", deadline: day(10), total: 1500, paid: 500 }
+    { id: 1, reason: "Оплата позиций", status: "Ожидает оплаты", deadline: day(4), total: 5400, paid: 0, left: 5400, positions: "№1001 Фигурка, №1003 Альбом", can_defer: true },
+    { id: 2, reason: "Доставка №7", status: "Просрочен", deadline: day(-2), total: 900, paid: 0, left: 900, positions: "", can_defer: false },
+    { id: 3, reason: "Доп. платёж", status: "Частично оплачен", deadline: day(10), total: 1500, paid: 500, left: 1000, positions: "", can_defer: true }
   ];
   var notes = sc === "empty" ? [] : [
     { created: day(0), text: "Ваша посылка №7 прибыла на склад.", unread: true },
@@ -63,7 +63,8 @@
     "/api/profile": { name: "Тестовый клиент", photo: P[0], stats: { total: orders.length, china: 2, in_transit_rf: 2, on_hand_admin: 2 },
       spending: { deposit_amount: 1000, deposit_comment: "аванс", total_sum: 42000, positions_sum: 36000, delivery_sum: 4000, extra_sum: 2000, since: day(-200) } },
     "/api/profile/detail": { rows: [{ number: "№1001", title: "Фигурка", paid: 3200 }, { number: "№1003", title: "Альбом", paid: 2100 }] },
-    "/api/payments": { payments: pays, channel: sc === "channel" },
+    "/api/payments": { payments: pays, channel: sc === "channel", can_pay: sc !== "channel", requisites: "Карта Сбер 0000 0000 0000 0000\nПолучатель: Имя Ф.", deferral_days: 10, waiting: sc === "slow" ? [] : [{ id: 9, reason: "Оплата карго", total: 700, positions: "" }] },
+    "/api/payments/pay": { ok: true, count: 1 }, "/api/payments/defer": { ok: true, granted: [{ id: 1, date: day(14) }], skipped: [], days: 10 },
     "/api/notifications": { items: notes },
     "/api/delivery": deliv,
     "/api/delivery/request": { ok: true }, "/api/delivery/defer": { ok: true }, "/api/delivery/ack": { ok: true }
@@ -91,6 +92,9 @@
     if (p === "/ma/fin") return { payments: [{ id: 11, client: "Анна", channel: false, reason: "Оплата за позицию", status: "На проверке", total: 1595, paid: 0, left: 1595, positions: "№1001 Фигурка", deadline: "2026-12-05", response: "Оплатила, чек в личке", note: "" }, { id: 12, client: "Озон-карточка", channel: true, reason: "Оплата за доставку по РФ", status: "Выставлен", total: 450, paid: 0, left: 450, positions: "", deadline: null, response: "", note: "" }], more: false };
     if (/^\/ma\/fin\/\d+\//.test(p)) return { ok: true, notified: true, fully_paid: false, remaining: 100 };
     if (/^\/ma\/people\/\d+\/deposit$/.test(p)) return { amount: 500, comment: "", stats: { positions_sum: 12000, delivery_sum: 3000, total_sum: 15000 }, ok: true };
+    if (p === "/ma/fin/issue-meta") return { reasons: ["Оплата за позицию", "Дополнительный платеж", "Оплата за карго", "Оплата за доставку по РФ"], package_reasons: ["Оплата за карго"], packages: [{ id: 3, name: "Коробка 3" }], default_deadline: "2026-12-07" };
+    if (p === "/ma/fin/positions") return { positions: [{ id: 21, number: "№1001", title: "Фигурка", status: "Выкуплен" }, { id: 22, number: "№1003", title: "Альбом", status: "На кит.складе" }] };
+    if (p === "/ma/fin/issue") return { ok: true, id: 55, total: 2500, deposit_applied: 0, notified: true };
     if (p === "/ma/people") return { users: [{ id: 5, name: "Анна", username: "anna", nick: "", comment: "", tags: "VIP", status: "Заказчик", manual: false, channel_id: null }, { id: 7, name: "Озон-карточка", username: "", nick: "Озон-карточка", comment: "ручная", tags: "", status: "Заказчик", manual: true, channel_id: 1 }], more: false };
     if (p === "/ma/people/new" || /^\/ma\/people\/\d+\/(edit|status)$/.test(p)) return { ok: true, id: 8 };
     if (p === "/ma/users") return { users: [{ id: 5, name: "Анна", username: "anna", telegram_id: 1, nick: "", status: "Заказчик" }, { id: 6, name: "Игорь", username: "igor", telegram_id: 2, nick: "И.", status: "Заказчик" }] };

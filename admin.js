@@ -190,7 +190,8 @@
   const FIN_TABS = [["review", "Проверка"], ["issued", "Счета"], ["deferred", "Отсрочки"]];
   function tabFin(sub) {
     sub = sub || tabFin.sub || "review"; tabFin.sub = sub;
-    $("atab").innerHTML = `<div class="tabs">${FIN_TABS.map(([k, t]) => `<button class="btn ${k === sub ? "primary" : ""}" data-f="${k}">${t}</button>`).join("")}</div><div id="flist"><div class="spin small"></div></div>`;
+    $("atab").innerHTML = `<div class="tabs"><button class="btn primary" id="fissue">＋ Выставить счёт</button></div><div class="tabs">${FIN_TABS.map(([k, t]) => `<button class="btn ${k === sub ? "primary" : ""}" data-f="${k}">${t}</button>`).join("")}</div><div id="flist"><div class="spin small"></div></div>`;
+    $("fissue").onclick = () => issueSheet(() => tabFin(sub));
     document.querySelectorAll("[data-f]").forEach((b) => (b.onclick = () => tabFin(b.dataset.f)));
     aapi("/ma/fin?tab=" + sub).then((d) => {
       $("flist").innerHTML = d.payments.length ? d.payments.map((x) => `<button class="row" data-p="${x.id}"><span class="l">${esc(x.client)} · ${esc(x.reason)}<span class="cap">${esc(x.positions)}${x.deadline ? " · до " + esc(fmtDate(x.deadline)) : ""}${x.response ? " · «" + esc(x.response) + "»" : ""}</span></span><b>${money(x.left || x.total)} ₽</b></button>`).join("") + (d.more ? `<p class="muted">Показаны первые 60.</p>` : "") : `<p class="muted">${sub === "review" ? "Нет платежей, ждущих проверки" : "Пусто"}</p>`;
@@ -225,5 +226,50 @@
       <div class="tabs"><button class="btn primary" id="ds">Сохранить</button><button class="btn" id="dx">Закрыть</button></div>`);
     $("dx").onclick = () => el.remove();
     $("ds").onclick = async () => { try { await aapi("/ma/people/" + u.id + "/deposit", { method: "POST", json: { amount: $("dm").value, comment: $("dc").value } }); toast("Депозит сохранён"); el.remove(); } catch (e) { toast(errText(e)); } };
+  }
+
+  async function issueSheet(refresh) {
+    let meta, users; try { [meta, users] = await Promise.all([aapi("/ma/fin/issue-meta"), aapi("/ma/users?all=1")]); } catch (e) { return toast(errText(e)); }
+    const all = users.users; let positions = [];
+    const label = (u) => (u.name + (u.username ? " @" + u.username : "") + (u.nick && u.nick !== u.name ? " · " + u.nick : ""));
+    const el = sheet(`<h3>Выставить счёт</h3>
+      <label class="muted">Клиент</label><input id="iq" placeholder="Поиск: имя, @ник или ID"><select id="iu"></select>
+      <label class="muted">Причина</label><select id="ir">${meta.reasons.map((r) => `<option>${esc(r)}</option>`).join("")}</select>
+      <div id="ipkw" hidden><label class="muted">Посылка</label><select id="ipk"><option value="">— выберите посылку —</option>${meta.packages.map((p) => `<option value="${p.id}">${esc(p.name)}</option>`).join("")}</select></div>
+      <div id="ipos"></div>
+      <div class="tabs"><button class="btn" id="iadd">＋ Своя строка (без привязки к заказу)</button></div>
+      <div id="icust"></div>
+      <label class="muted">Срок оплаты</label><input id="id" type="date" value="${esc(meta.default_deadline)}">
+      <label class="muted">Комментарий (необязательно)</label><input id="ic">
+      <label class="chk"><input type="checkbox" id="in" checked> Отправить клиенту уведомление</label>
+      <div class="cres" id="itot" style="margin:8px 0">Итого: 0 ₽</div>
+      <div class="tabs"><button class="btn primary" id="isave">Выставить счёт</button><button class="btn" id="ix">Отмена</button></div>`);
+    const fill = (q) => { const f = (q || "").toLowerCase(); const keep = $("iu").value;
+      $("iu").innerHTML = `<option value="">— выберите клиента —</option>` + all.filter((u) => !f || (label(u) + " " + (u.telegram_id || "")).toLowerCase().includes(f)).map((u) => `<option value="${u.id}">${esc(label(u))}</option>`).join(""); if (keep) $("iu").value = keep; };
+    fill(""); $("iq").oninput = () => fill($("iq").value.trim());
+    const isPkg = () => meta.package_reasons.includes($("ir").value);
+    const total = () => { let t = 0; el.querySelectorAll(".iamt").forEach((i) => { const row = i.closest(".irow"); if (row.querySelector(".ion") && !row.querySelector(".ion").checked) return; const n = parseFloat(String(i.value).replace(",", ".").replace(/\s/g, "")); if (n > 0) t += n; }); $("itot").textContent = "Итого: " + money(t) + " ₽"; };
+    const loadPos = async () => {
+      $("ipkw").hidden = !isPkg(); $("ipos").innerHTML = "";
+      const u = $("iu").value, pk = $("ipk").value; if (!u || (isPkg() && !pk)) { positions = []; total(); return; }
+      try { positions = (await aapi("/ma/fin/positions?user_id=" + u + "&reason=" + encodeURIComponent($("ir").value) + "&package_id=" + pk)).positions; } catch (e) { return toast(errText(e)); }
+      $("ipos").innerHTML = positions.length ? `<div class="muted">Позиции клиента — отметьте и впишите сумму:</div>` + positions.map((p) => `<div class="irow" data-o="${p.id}"><label class="chk"><input type="checkbox" class="ion" ${isPkg() ? "checked" : ""}> ${esc(p.number)} ${esc(p.title)} <span class="muted">(${esc(p.status)})</span></label><input class="iamt" inputmode="decimal" placeholder="Сумма, ₽"></div>`).join("") : `<p class="muted">Подходящих позиций нет — добавьте свою строку.</p>`;
+      el.querySelectorAll("#ipos input").forEach((i) => (i.oninput = i.onchange = total)); total();
+    };
+    $("iu").onchange = loadPos; $("ir").onchange = loadPos; $("ipk").onchange = loadPos;
+    $("iadd").onclick = () => { const d = document.createElement("div"); d.className = "irow"; d.innerHTML = `<input class="icm" placeholder="Описание (например: Доставка)"><input class="iamt" inputmode="decimal" placeholder="Сумма, ₽">`; $("icust").appendChild(d); d.querySelector(".iamt").oninput = total; };
+    $("ix").onclick = () => el.remove();
+    $("isave").onclick = async () => {
+      const items = [];
+      el.querySelectorAll("#ipos .irow").forEach((r) => { const v = r.querySelector(".iamt").value; if (r.querySelector(".ion").checked && v.trim()) items.push({ order_id: r.dataset.o, amount: v, comment: "" }); });
+      el.querySelectorAll("#icust .irow").forEach((r) => { const v = r.querySelector(".iamt").value; if (v.trim()) items.push({ order_id: null, amount: v, comment: r.querySelector(".icm").value }); });
+      if (!$("iu").value) return toast("Выберите клиента");
+      if (!items.length) return toast("Добавьте хотя бы одну позицию с суммой");
+      if (!confirm("Выставить счёт на " + $("itot").textContent.replace("Итого: ", "") + ($("in").checked ? " и отправить клиенту уведомление?" : " без уведомления клиенту?"))) return;
+      $("isave").disabled = true;
+      try { const r = await aapi("/ma/fin/issue", { method: "POST", json: { user_id: $("iu").value, reason: $("ir").value, package_id: $("ipk").value, deadline_date: $("id").value, comment: $("ic").value, items, notify: $("in").checked } });
+        toast("Счёт выставлен: " + money(r.total) + " ₽" + (r.deposit_applied ? " (списан депозит " + money(r.deposit_applied) + " ₽)" : "") + (r.notified ? ", клиент уведомлён" : "")); el.remove(); refresh(); }
+      catch (e) { $("isave").disabled = false; toast(errText(e)); }
+    };
   }
 })();

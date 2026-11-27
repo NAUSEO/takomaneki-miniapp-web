@@ -10,3 +10,12 @@
 #totop{position:fixed;right:14px;bottom:calc(20px + env(safe-area-inset-bottom,0px));width:48px;height:48px;display:grid;place-items:center;border:2px solid var(--ink);background:var(--paper,#fff);color:var(--ink);z-index:12;padding:0}
 #totop:active{transform:translateY(2px)}
 .row .l{text-align:left}.row .cap{display:block;text-align:left}
+
+/* оплаты: выбор платежей и нижняя панель действий */
+.row.pay{width:100%;text-align:left}
+.row.pay .chk-m{display:inline-grid;place-items:center;width:20px;height:20px;border:2px solid var(--ink);margin-right:8px;font-size:14px;line-height:1;vertical-align:middle;background:var(--paper,#fff)}
+.row.pay.sel{background:var(--y)}
+.paybar{margin:14px 0 96px}.paybar .duo{margin-top:8px}
+.reqs{white-space:pre-wrap;overflow-wrap:anywhere;border:2px dashed var(--ink);padding:10px;font-size:14px}
+textarea{width:100%;box-sizing:border-box;border:2px solid var(--ink);padding:10px;font:inherit;font-size:14px;background:var(--paper,#fff);color:var(--ink)}
+.btn:disabled{opacity:.4}
