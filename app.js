@@ -349,7 +349,7 @@ function paySheet(d, list, mode) {
   $("paysend").onclick = async () => {
     const text = $("paytxt").value.trim(); if (!text) { toast("Напишите сумму, банк и время перевода"); return; }
     $("paysend").disabled = true;
-    try { await api("/api/payments/pay", { method: "POST", headers: headers(), body: JSON.stringify({ ids: list.map((p) => p.id), mode, text }) }); el.remove(); toast("Ваш платёж в обработке. Ожидайте смену статуса"); viewPayments(); }
+    try { const r = await api("/api/payments/pay", { method: "POST", headers: headers(), body: JSON.stringify({ ids: list.map((p) => p.id), mode, text }) }); el.remove(); toast(r.message || "Ваш платёж в обработке. Ожидайте смену статуса"); viewPayments(); }
     catch (e) { $("paysend").disabled = false; toast(e.message || "Не получилось отправить"); }
   };
 }
@@ -366,7 +366,7 @@ function payDeferSheet(d, list) {
     $("defyes").disabled = true;
     try {
       const r = await api("/api/payments/defer", { method: "POST", headers: headers(), body: JSON.stringify({ ids: ok.map((p) => p.id) }) });
-      el.remove(); toast(r.granted.length ? "Отсрочка выдана. Новая дата: " + r.granted.map((g) => fmtDate(g.date)).join(", ") : "Отсрочка уже была использована"); viewPayments();
+      el.remove(); toast(r.message || (r.granted.length ? "Отсрочка выдана. Новая дата: " + r.granted.map((g) => fmtDate(g.date)).join(", ") : "Отсрочка уже была использована")); viewPayments();
     } catch (e) { $("defyes").disabled = false; toast(e.message || "Не получилось"); }
   };
 }
