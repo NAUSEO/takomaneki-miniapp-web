@@ -296,10 +296,21 @@ function viewProfile() {
       <div class="kv"><div><span>Текущих заказов</span><b>${s.total}</b></div>
       ${s.china ? `<div><span>В Китае</span><b>${s.china}</b></div>` : ""}${s.in_transit_rf ? `<div><span>В пути в РФ</span><b>${s.in_transit_rf}</b></div>` : ""}${s.on_hand_admin ? `<div><span>На руках админа</span><b>${s.on_hand_admin}</b></div>` : ""}</div></div>
       ${sp.deposit_amount ? `<div class="card win"><div class="bar"><span>Депозит</span><span class="x"></span></div><div class="body col"><div class="big">${rub(sp.deposit_amount)}</div>${sp.deposit_comment ? `<div class="m">${esc(sp.deposit_comment)}</div>` : ""}</div></div>` : ""}
-      <div class="tabs"><button class="btn" id="spoiler">Спойлер: траты</button></div>
+      <div class="tabs throw"><button class="btn" id="spoiler">Спойлер: траты</button><button class="btn" id="thbtn" aria-haspopup="true" aria-expanded="false">Тема</button>
+      <div class="pop thpop" hidden><div class="card win"><div class="bar"><span>Тема</span><span class="x"></span></div><div class="body col">${[["light", "Светлая", ""], ["dark", "Тёмная", ""]].map((t) => `<button class="thopt" data-th="${t[0]}"><span class="balls b-${t[0]}"><i></i><i></i><i></i></span><span>${t[1]}${t[2] ? `<small>${t[2]}</small>` : ""}</span></button>`).join("")}</div></div></div></div>
       <div id="spend" hidden><div class="card win"><div class="bar"><span>Траты</span><span class="x"></span></div><div class="kv"><div class="tot"><span>Общая сумма</span><b>${rub(sp.total_sum)}</b></div><div><span>Позиции</span><b>${rub(sp.positions_sum)}</b></div>
       <div><span>Доставки</span><b>${rub(sp.delivery_sum)}</b></div><div><span>Дополнительное</span><b>${rub(sp.extra_sum)}</b></div></div>
       ${sp.since ? `<div class="cap pad">Учёт ведётся с ${fmtDate(sp.since)}</div>` : ""}</div><div class="tabs"><button class="btn" id="detail">Детализация</button></div><div id="detailbox"></div></div>`;
+    // «Тема»: облачко с вариантами (шарики цветов + название), выбор хранится на телефоне (c:theme)
+    const tp = document.querySelector(".thpop"), tb = $("thbtn");
+    const mark = () => document.querySelectorAll("[data-th]").forEach((b) => b.classList.toggle("on", b.dataset.th === (document.documentElement.dataset.theme || "light")));
+    const shut = () => { tp.hidden = true; tb.setAttribute("aria-expanded", "false"); };
+    tb.onclick = (e) => { e.stopPropagation(); if (!tp.hidden) return shut(); mark(); tp.hidden = false; tb.setAttribute("aria-expanded", "true");
+      const w = tp.parentElement.clientWidth, pw = tp.offsetWidth, cx = tb.offsetLeft + tb.offsetWidth / 2, l = Math.max(0, Math.min(w - pw, cx - pw / 2));
+      tp.style.left = l + "px"; tp.style.top = tb.offsetTop + tb.offsetHeight + 12 + "px"; tp.style.setProperty("--ax", cx - l + "px"); };
+    tp.onclick = (e) => e.stopPropagation();
+    document.querySelectorAll("[data-th]").forEach((b) => (b.onclick = () => { document.documentElement.dataset.theme = b.dataset.th; cacheSet("theme", b.dataset.th); mark(); setTimeout(shut, 250); }));
+    if (!viewProfile.doc) { viewProfile.doc = true; document.addEventListener("click", () => { const p = document.querySelector(".thpop"); if (p && !p.hidden) { p.hidden = true; const b = $("thbtn"); if (b) b.setAttribute("aria-expanded", "false"); } }); }
     $("spoiler").onclick = () => ($("spend").hidden = !$("spend").hidden);
     $("detail").onclick = async () => {
       const r = await api("/api/profile/detail");
@@ -502,7 +513,7 @@ function deferSheet() {
 }
 
 /* заставка показывается минимум ~1,6 с от открытия: иначе при быстром сервере она мелькает и анимации не видно */
-function hideLoader() { const l = $("loader"); if (!l) return; const wait = Math.max(0, 1600 - Math.round(performance.now())); wait ? setTimeout(() => { l.hidden = true; }, wait) : (l.hidden = true); }
+function hideLoader() { const l = $("loader"); if (!l) return; const done = () => { l.hidden = true; document.body.classList.remove("booting"); }; const wait = Math.max(0, 1600 - Math.round(performance.now())); wait ? setTimeout(done, wait) : done(); }
 /* админам: «будим» панель на Render в фоне сразу при запуске, чтобы вкладки «Админ» не ждали по минуте */
 let panelWoken = false;
 function wakePanel() {
@@ -512,6 +523,7 @@ function wakePanel() {
 }
 
 function boot() {
+  { const l = $("loader"); if (l && !l.hidden) document.body.classList.add("booting"); }   // пока идёт заставка, экран под ней не показываем
   hideLoader(); wakePanel(); $("gate").hidden = true; $("screen").hidden = false; $("nav").hidden = false;
   $("back").onclick = back; $("home").onclick = home;
   $("bell").onclick = () => { const c = stack[stack.length - 1]; if (!c || c.view !== "notifications") go("notifications", null, "Уведомления"); };
