@@ -264,20 +264,30 @@
       $("iu").innerHTML = `<option value="">— выберите клиента —</option>` + all.filter((u) => !f || (label(u) + " " + (u.telegram_id || "")).toLowerCase().includes(f)).map((u) => `<option value="${u.id}">${esc(label(u))}</option>`).join(""); if (keep) $("iu").value = keep; };
     fill(""); $("iq").oninput = () => fill($("iq").value.trim());
     const isPkg = () => meta.package_reasons.includes($("ir").value);
-    const total = () => { let t = 0; el.querySelectorAll(".iamt").forEach((i) => { const row = i.closest(".irow"); if (row.querySelector(".ion") && !row.querySelector(".ion").checked) return; const n = parseFloat(String(i.value).replace(",", ".").replace(/\s/g, "")); if (n > 0) t += n; }); $("itot").textContent = "Итого: " + money(t) + " ₽"; };
+    const total = () => { let t = 0; el.querySelectorAll(".iamt").forEach((i) => { const n = parseFloat(String(i.value).replace(",", ".").replace(/\s/g, "")); if (n > 0) t += n; }); $("itot").textContent = "Итого: " + money(t) + " ₽"; };
     const loadPos = async () => {
       $("ipkw").hidden = !isPkg(); $("ipos").innerHTML = "";
       const u = $("iu").value, pk = $("ipk").value; if (!u || (isPkg() && !pk)) { positions = []; total(); return; }
       try { positions = (await aapi("/ma/fin/positions?user_id=" + u + "&reason=" + encodeURIComponent($("ir").value) + "&package_id=" + pk)).positions; } catch (e) { return toast(errText(e)); }
-      $("ipos").innerHTML = positions.length ? `<div class="muted">Позиции клиента — отметьте и впишите сумму:</div>` + positions.map((p) => `<div class="irow" data-o="${p.id}"><label class="chk"><input type="checkbox" class="ion" ${isPkg() ? "checked" : ""}> ${esc(p.number)} ${esc(p.title)} <span class="muted">(${esc(p.status)})</span></label><input class="iamt" inputmode="decimal" placeholder="Сумма, ₽"></div>`).join("") : `<p class="muted">Подходящих позиций нет — добавьте свою строку.</p>`;
-      el.querySelectorAll("#ipos input").forEach((i) => (i.oninput = i.onchange = total)); total();
+      if (!positions.length) { $("ipos").innerHTML = `<p class="muted">Подходящих позиций нет — добавьте свою строку.</p>`; total(); return; }
+      $("ipos").innerHTML = `<label class="muted">Позиции клиента (${positions.length}) — выберите из списка</label><input id="ips" placeholder="Поиск: № или название"><select id="ipp"></select><div id="iadded"></div>`;
+      const fillPos = () => { const f = $("ips").value.trim().toLowerCase(); const used = new Set([...el.querySelectorAll("#iadded .irow")].map((r) => String(r.dataset.o)));
+        const list = positions.filter((p) => !used.has(String(p.id)) && (!f || (p.number + " " + p.title).toLowerCase().includes(f)));
+        $("ipp").innerHTML = `<option value="">${list.length ? "＋ Добавить позицию… (" + list.length + ")" : "Ничего не найдено"}</option>` + list.map((p) => `<option value="${p.id}">${esc(p.number)} ${esc(p.title)} (${esc(p.status)})</option>`).join(""); };
+      const addPos = (p) => { const d = document.createElement("div"); d.className = "irow"; d.dataset.o = p.id;
+        d.innerHTML = `<div style="display:flex;gap:8px;align-items:center;justify-content:space-between"><span><b>${esc(p.number)}</b> ${esc(p.title)} <span class="muted">(${esc(p.status)})</span></span><button class="btn irm" type="button" aria-label="Убрать">✕</button></div><input class="iamt" inputmode="decimal" placeholder="Сумма, ₽">`;
+        $("iadded").appendChild(d); d.querySelector(".iamt").oninput = total; d.querySelector(".irm").onclick = () => { d.remove(); fillPos(); total(); }; return d; };
+      $("ips").oninput = fillPos;
+      $("ipp").onchange = () => { const p = positions.find((x) => String(x.id) === $("ipp").value); if (!p) return; const d = addPos(p); $("ips").value = ""; fillPos(); total(); d.querySelector(".iamt").focus(); };
+      if (isPkg()) positions.forEach(addPos);
+      fillPos(); total();
     };
     $("iu").onchange = loadPos; $("ir").onchange = loadPos; $("ipk").onchange = loadPos;
     $("iadd").onclick = () => { const d = document.createElement("div"); d.className = "irow"; d.innerHTML = `<input class="icm" placeholder="Описание (например: Доставка)"><input class="iamt" inputmode="decimal" placeholder="Сумма, ₽">`; $("icust").appendChild(d); d.querySelector(".iamt").oninput = total; };
     $("ix").onclick = () => el.remove();
     $("isave").onclick = async () => {
       const items = [];
-      el.querySelectorAll("#ipos .irow").forEach((r) => { const v = r.querySelector(".iamt").value; if (r.querySelector(".ion").checked && v.trim()) items.push({ order_id: r.dataset.o, amount: v, comment: "" }); });
+      el.querySelectorAll("#ipos .irow").forEach((r) => { const v = r.querySelector(".iamt").value; if (v.trim()) items.push({ order_id: r.dataset.o, amount: v, comment: "" }); });
       el.querySelectorAll("#icust .irow").forEach((r) => { const v = r.querySelector(".iamt").value; if (v.trim()) items.push({ order_id: null, amount: v, comment: r.querySelector(".icm").value }); });
       if (!$("iu").value) return toast("Выберите клиента");
       if (!items.length) return toast("Добавьте хотя бы одну позицию с суммой");

@@ -93,7 +93,7 @@
     if (/^\/ma\/fin\/\d+\//.test(p)) return { ok: true, notified: true, fully_paid: false, remaining: 100 };
     if (/^\/ma\/people\/\d+\/deposit$/.test(p)) return { amount: 500, comment: "", stats: { positions_sum: 12000, delivery_sum: 3000, total_sum: 15000 }, ok: true };
     if (p === "/ma/fin/issue-meta") return { reasons: ["Оплата за позицию", "Дополнительный платеж", "Оплата за карго", "Оплата за доставку по РФ"], package_reasons: ["Оплата за карго"], packages: [{ id: 3, name: "Коробка 3" }], default_deadline: "2026-12-07" };
-    if (p === "/ma/fin/positions") return { positions: [{ id: 21, number: "№1001", title: "Фигурка", status: "Выкуплен" }, { id: 22, number: "№1003", title: "Альбом", status: "На кит.складе" }] };
+    if (p === "/ma/fin/positions") return { positions: Array.from({ length: 30 }, (_, i) => ({ id: 21 + i, number: "№" + (1001 + i), title: ["Фигурка", "Альбом", "Плюш Эвер", "Стенд"][i % 4] + " " + (i + 1), status: "Предзаказ" })) };
     if (p === "/ma/fin/issue") return { ok: true, id: 55, total: 2500, deposit_applied: 0, notified: true };
     if (p === "/ma/people") return { users: [{ id: 5, name: "Анна", username: "anna", nick: "", comment: "", tags: "VIP", status: "Заказчик", manual: false, channel_id: null }, { id: 7, name: "Озон-карточка", username: "", nick: "Озон-карточка", comment: "ручная", tags: "", status: "Заказчик", manual: true, channel_id: 1 }], more: false };
     if (p === "/ma/people/new" || /^\/ma\/people\/\d+\/(edit|status)$/.test(p)) return { ok: true, id: 8 };
