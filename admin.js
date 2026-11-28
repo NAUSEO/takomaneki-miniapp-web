@@ -5,6 +5,23 @@
   const ADM = { tab: "rates", meta: null };
   const TABS = [["rates", "Курс"], ["calc", "Расчёт"], ["orders", "Заказы"], ["deliv", "Доставка"], ["people", "Клиенты"], ["fin", "Финансы"]];
 
+  /* фото сжимается на телефоне до отправки: до 1280 px, JPEG. Заодно iPhone-HEIC превращается в JPEG (Safari умеет его читать) */
+  async function squeeze(file) {
+    const ok = /^image\/(jpeg|png)$/.test(file.type);
+    try {
+      const url = URL.createObjectURL(file);
+      const img = new Image(); img.src = url; await img.decode();
+      const k = Math.min(1, 1280 / Math.max(img.naturalWidth, img.naturalHeight));
+      const cv = document.createElement("canvas"); cv.width = Math.round(img.naturalWidth * k); cv.height = Math.round(img.naturalHeight * k);
+      const cx = cv.getContext("2d"); cx.fillStyle = "#fff"; cx.fillRect(0, 0, cv.width, cv.height); cx.drawImage(img, 0, 0, cv.width, cv.height);
+      URL.revokeObjectURL(url);
+      const blob = await new Promise((res) => cv.toBlob(res, "image/jpeg", 0.8));
+      if (blob && (blob.size < file.size || !ok)) return blob;
+    } catch (e) { /* не получилось сжать — ниже отправим как есть, если это JPG/PNG */ }
+    if (ok) return file;
+    throw new Error("Не удалось обработать фото. Пришлите JPG или PNG");
+  }
+
   async function aapi(path, opts) {
     if (!ME || ME.admin_api == null) throw new Error("Админ-раздел не настроен");
     const o = Object.assign({}, opts || {});
@@ -89,8 +106,8 @@
     if (o.has_photo) aapi("/ma/order/" + id + "/photo", { blob: true }).then((b) => { if (b) $("ph").innerHTML = `<img src="${URL.createObjectURL(b)}" alt="">`; });
     $("os_x").onclick = () => el.remove();
     $("os_save").onclick = async () => { try { const r = await aapi("/ma/order/" + id + "/status", { method: "POST", json: { status: $("os_st").value } }); toast("Статус изменён" + (r.old !== r.status ? "; клиент уведомлён по настройкам" : "")); el.remove(); refresh(); } catch (e) { toast(errText(e)); } };
-    $("os_phb").onclick = async () => { const f = $("os_ph").files[0]; if (!f) return toast("Выберите фото"); const fd = new FormData(); fd.append("photo", f);
-      try { await aapi("/ma/order/" + id + "/photo", { method: "POST", body: fd }); toast("Фото сохранено"); el.remove(); refresh(); } catch (e) { toast(errText(e)); } };
+    $("os_phb").onclick = async () => { const f = $("os_ph").files[0]; if (!f) return toast("Выберите фото"); const fd = new FormData();
+      try { fd.append("photo", await squeeze(f), "photo.jpg"); await aapi("/ma/order/" + id + "/photo", { method: "POST", body: fd }); toast("Фото сохранено"); el.remove(); refresh(); } catch (e) { toast(errText(e)); } };
   }
 
   function newOrderSheet(refresh) {
@@ -118,9 +135,8 @@
     $("nsave").onclick = async () => {
       if (!userId) return toast("Выберите клиента из списка");
       const fd = new FormData(); fd.append("user_id", userId); fd.append("title", $("nt").value); fd.append("source", $("ns").value); fd.append("status", $("nst").value); fd.append("comment", $("nc").value);
-      if ($("np").files[0]) fd.append("photo", $("np").files[0]);
       $("nsave").disabled = true;
-      try { const r = await aapi("/ma/orders/new", { method: "POST", body: fd }); toast("Создан заказ " + r.number); el.remove(); refresh(); } catch (e) { toast(errText(e)); $("nsave").disabled = false; }
+      try { if ($("np").files[0]) fd.append("photo", await squeeze($("np").files[0]), "photo.jpg"); const r = await aapi("/ma/orders/new", { method: "POST", body: fd }); toast("Создан заказ " + r.number); el.remove(); refresh(); } catch (e) { toast(errText(e)); $("nsave").disabled = false; }
     };
   }
 
